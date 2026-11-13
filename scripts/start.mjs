@@ -24,7 +24,7 @@ const run = (command, args, env = process.env) =>
   });
 try {
   const [major, minor] = process.versions.node.split('.').map(Number);
-  if (major < 24 || (major === 24 && minor < 21)) throw new Error('Use Node.js 24.21.0 or newer.');
+  if (major < 22 || (major === 24 && minor < 18)) throw new Error('Use Node.js 22.0.0 or newer.');
   const [wanted, installed] = await Promise.all([
     readFile('pnpm-lock.yaml', 'utf8'),
     readFile('node_modules/.pnpm/lock.yaml', 'utf8').catch(() => ''),

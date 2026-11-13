@@ -15,7 +15,7 @@
   "private": false,
   "type": "module",
   "engines": {
-    "node": ">=24.21.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "dev": "node scripts/start.mjs",
