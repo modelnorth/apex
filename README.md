@@ -8,10 +8,6 @@
 > **The Sovereign, Self-Hosted Personal AI Operating System.**  
 > Built to obsolete centralized personal AI services (Instinct AI, Claude Duet, OpenAI Dots). Apex runs 100% locally or on your own VPS with real telephone calls, automated SMS 2FA interception, single-use burner debit cards, stealth browser automation, and GhostDesk OS accessibility tree control—fortified by strict prompt injection firewalls.
 
-<p align="center">
-  <img src="docs/media/apex_demo.gif" alt="Apex Sovereign Execution Demo" width="100%" />
-</p>
-
 ---
 
 ## ⚔️ Feature Parity & Moat Destruction Matrix
