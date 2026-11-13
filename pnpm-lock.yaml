@@ -255,8 +255,8 @@ importers:
         specifier: 0.28.2
         version: 0.28.2
       fake-indexeddb:
-        specifier: ^6.2.6
-        version: 6.2.6
+        specifier: ^6.2.8
+        version: 6.2.8
       fflate:
         specifier: 0.8.3
         version: 0.8.3
@@ -2500,8 +2500,8 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fake-indexeddb@6.2.6:
-    resolution: {integrity: sha512-ihhmr0KoET51jT8R4YhbUYuLLvr1qqO6INISygtN16i8loR8kAxtAUr4+EKHTSMjL+lggaAn4OC7DRqzrNgnuQ==}
+  fake-indexeddb@6.2.8:
+    resolution: {integrity: sha512-mpVW/HLUqwKXJ6F/s0hMgdK1eQfM4ncTHDioNGHWL0WKV3VcZCoZq1NKgboBbAge07aRCO7L48yziKssL59XEQ==}
     engines: {node: '>=18'}
 
   fast-decode-uri-component@1.0.1:
@@ -6868,7 +6868,7 @@ snapshots:
 
   extend@3.0.2: {}
 
-  fake-indexeddb@6.2.6: {}
+  fake-indexeddb@6.2.8: {}
 
   fast-decode-uri-component@1.0.1: {}
 
