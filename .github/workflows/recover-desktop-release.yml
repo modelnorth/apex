@@ -1,0 +1,112 @@
+name: Recover desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Completed Build desktop release run whose publisher failed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-build-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      actions: read
+    if: github.ref == 'refs/heads/main'
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    timeout-minutes: 30
+    environment:
+      name: release
+      deployment: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+      NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+      NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+      NOD_PUBLISH_RELEASE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: publisher
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+      - name: Require completed and tested platform builds
+        id: source
+        env:
+          RELEASE_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { execFileSync } from 'node:child_process';
+          import { appendFileSync } from 'node:fs';
+          const id = process.env.RELEASE_RUN_ID;
+          assert(/^[1-9]\d*$/.test(id));
+          const repository = process.env.GITHUB_REPOSITORY;
+          const api = (path) => JSON.parse(execFileSync('gh', ['api', `repos/${repository}/${path}`], { encoding: 'utf8' }));
+          const run = api(`actions/runs/${id}`);
+          assert.equal(run.path, '.github/workflows/desktop-release.yml');
+          assert.equal(run.head_branch, 'main');
+          assert.equal(run.head_repository.full_name, repository);
+          assert.equal(run.status, 'completed');
+          assert(/^[a-f0-9]{40}$/.test(run.head_sha));
+          assert(Number.isSafeInteger(run.run_attempt) && run.run_attempt > 0);
+          const ci = api(`actions/workflows/ci.yml/runs?head_sha=${run.head_sha}&per_page=20`).workflow_runs;
+          assert(ci.some((entry) => entry.head_sha === run.head_sha && entry.head_branch === 'main' && entry.head_repository.full_name === repository && entry.conclusion === 'success'));
+          const current = JSON.parse(execFileSync('gh', ['api', `repos/${repository}`], { encoding: 'utf8' }));
+          assert.equal(typeof current.private, 'boolean');
+          appendFileSync(process.env.GITHUB_OUTPUT, `source=${run.head_sha}\nattempt=${run.run_attempt}\nprivate=${current.private}\n`);
+          JS
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ steps.source.outputs.source }}
+          fetch-depth: 0
+          path: release
+          persist-credentials: false
+      - name: Download the validated release files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          pattern: desktop-@(macos-*|runtime-pack-*|windows-x64|release-plan|release-context|release-provenance)
+          path: release/.local/desktop-release-artifacts
+      - name: Place and bind the release files
+        working-directory: release
+        env:
+          NOD_RELEASE_SOURCE: ${{ steps.source.outputs.source }}
+          RELEASE_RUN_ID: ${{ inputs.run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.source.outputs.attempt }}
+          CURRENT_REPOSITORY_PRIVATE: ${{ steps.source.outputs.private }}
+        run: |
+          mkdir -p dist/desktop .local/desktop-runtime-release
+          mv .local/desktop-release-artifacts/desktop-macos-arm64 dist/desktop/arm64
+          mv .local/desktop-release-artifacts/desktop-macos-x64 dist/desktop/x64
+          mv .local/desktop-release-artifacts/desktop-windows-x64 dist/desktop/win32-x64
+          for arch in arm64 x64; do
+            if [ -d ".local/desktop-release-artifacts/desktop-runtime-pack-$arch" ]; then
+              mv ".local/desktop-release-artifacts/desktop-runtime-pack-$arch" ".local/desktop-runtime-release/$arch"
+            fi
+          done
+          node ../publisher/.github/scripts/desktop-release-recovery.mjs bind
+      - name: Select the original build provenance
+        id: provenance
+        run: |
+          bundle="$GITHUB_WORKSPACE/release/.local/desktop-release-artifacts/desktop-release-provenance/nod-release-provenance.sigstore.json"
+          if [ -f "$bundle" ]; then
+            echo "bundle-path=$bundle" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify and publish the existing signed files
+        working-directory: release
+        env:
+          NOD_PRIVATE_ATTESTATIONS: ${{ vars.NOD_PRIVATE_ATTESTATIONS }}
+          NOD_RELEASE_ATTESTATION: ${{ steps.provenance.outputs.bundle-path }}
+        run: node ../publisher/.github/scripts/desktop-release.mjs draft-all

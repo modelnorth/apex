@@ -1,0 +1,15 @@
+Nod Sovereign
+Copyright 2026 ModelNorth (https://github.com/modelnorth)
+Portions Copyright 2026 n8n GmbH (https://n8n.io/)
+
+This product is derived from Nod by n8n GmbH and includes software
+developed by ModelNorth, n8n GmbH, and open source contributors.
+
+The local phoneme processor includes Spellophone and eSpeak NG under
+GPL-3.0-or-later. Its source file src/providers/local-speech/phonemizer-worker.ts
+is distributed under GPL-3.0-or-later. See desktop/licenses/speech.md for component
+attribution and corresponding source. Desktop builds include the license and
+verified source archives under engine/licenses/speech.
+
+For a full list of third-party open-source projects, attributions, and thanks,
+see ACKNOWLEDGEMENTS.md.

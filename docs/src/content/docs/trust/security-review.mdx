@@ -1,0 +1,101 @@
+---
+title: Security review guide
+description: What a security or IT team needs to assess Nod, with data flows, stored data, threats, controls and the code that enforces them.
+sidebar:
+  label: Security review guide
+  order: 4
+---
+
+This page gives a security or IT team what it needs to assess Nod: where it runs, what it stores, which threats it addresses and where to verify each control in the code.
+
+## Deployment options
+
+|                     | Local desktop assistant                | Local source install                                   | Self-hosted server                              |
+| ------------------- | -------------------------------------- | ------------------------------------------------------ | ----------------------------------------------- |
+| Runs on             | The user's Mac or Windows PC           | A macOS or Linux machine                               | A machine with Docker Compose                   |
+| Data stored         | On the device, in a private VM         | `.local/` and Docker volumes                           | Persistent Docker volumes                       |
+| Encryption key held | macOS Keychain or OS-protected storage | Keychain, private Linux profile key or `NOD_VAULT_KEY` | `NOD_VAULT_KEY` in the private environment file |
+| Network exposure    | Loopback only, per-launch token        | Loopback by default, owner access key                  | Access token and HTTPS for network access       |
+
+A desktop app connected to a server is a client. The server holds the assistant's data and credentials; the client keeps its encrypted access token and device data. See [Your data and privacy](/trust/privacy/).
+
+## How data flows
+
+```mermaid
+flowchart LR
+  user([User]):::accent --> server[Nod server<br/>policy and keys]
+  server --> model[Model provider<br/>chosen by the user]
+  server -- managed app actions --> managed["Configured connection service"]
+  managed --> composio[Composio]
+  server --> apps[MCP and app APIs]
+  server --> chat[Telegram<br/>WhatsApp]
+  server --> box[Workspace<br/>no keys]:::muted
+  server --> browser[Browser]:::muted --> sites[Websites]
+  server -. sharing on, bounded .-> analytics[Usage analytics]:::muted
+  server -. opt-in, scrubbed .-> traces[Conversation traces]:::muted
+```
+
+Model requests go to the provider the user connects. Managed app requests and results pass through the configured connection service and Composio; n8n hosts the default service. Direct MCP connections bypass that service. Feedback, bounded usage analytics and scrubbed [conversation traces](/trust/conversation-traces/) are optional.
+
+## What Nod stores
+
+| Data                               | Where                                | Protection                                                                                                   | Kept                                     |
+| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Conversations, tasks and schedules | PostgreSQL                           | Every query scoped to the owner                                                                              | No automatic expiry                      |
+| Saved logins and cards             | PostgreSQL                           | AES-256-GCM, bound to owner, record and purpose                                                              | Until removed                            |
+| Model keys users save              | PostgreSQL                           | AES-256-GCM, bound to owner, record and purpose                                                              | Until removed                            |
+| MCP, API and CLI credentials       | PostgreSQL                           | AES-256-GCM, bound to owner, record and purpose                                                              | Until removed                            |
+| Server-managed model keys          | Server configuration                 | Not stored by Nod; never sent to the sandbox                                                                 | Until unset                              |
+| App installation identity          | Private installation files           | AES-256-GCM bound to the owner; desktop encryption root protected by the operating system                    | Until app data is removed                |
+| Vault activity                     | PostgreSQL                           | Owner-scoped, no secret values                                                                               | No automatic expiry                      |
+| Model costs and app actions        | PostgreSQL                           | Owner-scoped                                                                                                 | Permanent                                |
+| Memory                             | A private file outside the workspace | From owner messages, Settings and chosen imports, plus a sent-email style note; skills without personal data | Until forgotten                          |
+| Diagnostic journal                 | Private files outside the workspace  | Redaction before storage and export; owner-specific directory and restricted file permissions                | Last 24 hours when active; at most 3 MiB |
+| Workspace files, browser profiles  | Local volumes                        | Separate containers per owner                                                                                | Until removed                            |
+
+## Threats and controls
+
+| Threat                                                      | Control                                                                                                                                            | Verify in                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An email or web page tells Nod to send data or delete files | Server trust check on the action as sent; the review never sees tool results                                                                       | [`trust.ts`](https://github.com/n8n-io/nod/blob/main/src/server/trust.ts), [`untrusted.ts`](https://github.com/n8n-io/nod/blob/main/src/shared/untrusted.ts), [`approvals.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/approvals.test.ts)                         |
+| A spoofed email triggers a standing instruction             | The instruction names the action and target; any other change asks, and reads and drafts run as usual; the review never sees the email             | [`trust.ts`](https://github.com/n8n-io/nod/blob/main/src/server/trust.ts), [`untrusted.ts`](https://github.com/n8n-io/nod/blob/main/src/shared/untrusted.ts), [`approvals.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/approvals.test.ts)                         |
+| The model leaks a password or card number                   | Secrets never enter its context; private entry; masking in output and screenshots                                                                  | [`vault-access.ts`](https://github.com/n8n-io/nod/blob/main/src/server/vault-access.ts), [`browser-sign-in.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/browser-sign-in.test.ts)                                                                                  |
+| A saved login is used on a lookalike site                   | Exact-origin check on the real field, including frames                                                                                             | [`agent-browser`](https://github.com/n8n-io/nod/tree/main/src/providers/agent-browser), [`vault.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/vault.test.ts)                                                                                                       |
+| A payment or message runs twice                             | Durable claim before work; no automatic retries; uncertain state                                                                                   | [`vault-use.ts`](https://github.com/n8n-io/nod/blob/main/src/server/vault-use.ts), [`approvals.ts`](https://github.com/n8n-io/nod/blob/main/src/server/approvals.ts)                                                                                                         |
+| Code in the sandbox steals provider keys                    | Keys never enter the workspace; connected CLI tokens only reach a sealed install                                                                   | [`docker`](https://github.com/n8n-io/nod/tree/main/src/providers/docker), [`sandbox.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/sandbox.test.ts)                                                                                                                 |
+| A web page steers Nod to a local address                    | The browser and web tools connect only to public addresses, checked when each connection opens; Nod drops proxies from the model or saved settings | [`network.ts`](https://github.com/n8n-io/nod/blob/main/src/providers/agent-browser/network.ts), [`pi/index.ts`](https://github.com/n8n-io/nod/blob/main/src/providers/pi/index.ts), [`url-guards.test.ts`](https://github.com/n8n-io/nod/blob/main/tests/url-guards.test.ts) |
+| Another local process calls Nod's API                       | Owner access key on every request; loopback isn't treated as identity                                                                              | [`access.ts`](https://github.com/n8n-io/nod/blob/main/src/server/access.ts)                                                                                                                                                                                                  |
+
+Tests use synthetic data and disposable databases. They never call a live model or a real account. Capability evals run the real agent against fake apps and lookalike websites. See [Checks and tests](/contribute/checks-and-tests/) and [Capability evals](/contribute/evals/).
+
+## Built on published research
+
+| Pattern                                      | Source                                                                                                             | In Nod                                                                                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Privileged decisions from trusted input only | [CaMeL](https://arxiv.org/abs/2503.18813), [agent design patterns](https://arxiv.org/abs/2506.08837)               | Only the user's own words carry authority. The review also sees the action and the message the user answered, as data, never tool results |
+| Review the proposed action, not the content  | [Chrome agent security](https://blog.google/security/architecting-security-for-agentic/)                           | Confirmations show the request as sent                                                                                                    |
+| Fill credentials outside the model           | [1Password agentic autofill](https://1password.com/blog/closing-the-credential-risk-gap-for-browser-use-ai-agents) | Private entry on a verified origin                                                                                                        |
+| No token passthrough                         | [MCP authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)                  | Connection secrets stay server-side                                                                                                       |
+| Classifiers are a layer, not the boundary    | [The Attacker Moves Second](https://arxiv.org/abs/2510.09023)                                                      | No pattern classifier; the trust check, Vault and payment approval decide                                                                 |
+
+## Common questions
+
+**Does n8n see our conversations?** Managed app requests and results pass through n8n when you use its default connection service. They can include conversation content used in app actions. Feedback goes to the recipient named in the dialog, n8n by default. It selects a diagnostic report by default, with an exact preview and one-click opt-out, and remembers your choice on this device. Reports include recent messages, tool inputs and results, and logs for support, debugging, and product improvement. Known secrets and recognized personal details are masked, but redaction can miss information. Credential fields, screenshots, binary data, system prompts, and model thinking are omitted. New desktop drafts also include a removable screenshot when capture is available; private screens, embedded browsers, dialogs, and unsent text or files prevent capture. Feedback text and attachments are sent as provided. See [Feedback](/trust/privacy/#feedback). Usage analytics are on by default for new owners, retain existing choices, and exclude private content. They never capture screen recordings or session replays. You can turn them off in Settings. Conversation traces are opt-in: with n8n's trace service configured, scrubbed model requests and replies go to the Nod team's LangSmith project for 14 days, without any account or device identifier.
+
+**Does Nod train on our data?** Nod doesn't train models, and n8n doesn't use conversation traces to train AI models. The model provider you connect processes requests under its own terms.
+
+**Can we choose the model?** Yes. Users choose from the [supported model services](/connect/models/), including ChatGPT plan sign-in. They can also add an OpenAI-compatible server, such as Ollama, at an address reachable from Nod's server. The trust check then runs on that model. Operators can provide [environment settings](/connect/models/#set-connections-in-server-settings) for every API-key provider and OpenAI-compatible server. There's no setting yet that limits which providers users can add.
+
+**Is there single sign-on or an admin console?** No. Each local or self-hosted assistant belongs to one person. A self-hosted server uses one access token across that person's clients. There are no organization accounts.
+
+**Which certifications does Nod have?** None. Nod is an early preview. Saved-card support is not a PCI DSS compliance claim.
+
+## Limits and reporting
+
+Read the honest limits in [Security model and limits](/trust/security-model/). Report a vulnerability privately through the [security policy](https://github.com/n8n-io/nod/blob/main/SECURITY.md). The team aims to acknowledge within three business days and to share an assessment within 10.
+
+## Related resources
+
+- [Our trust principles](/trust/principles/)
+- [How Nod compares](/trust/compare/)
+- [Your data and privacy](/trust/privacy/)

@@ -1,0 +1,118 @@
+---
+title: Install from source
+description: Run Nod from its source code on macOS or Linux, open it with your access link and keep it updated.
+sidebar:
+  order: 3
+---
+
+import { Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Run Nod from its source code on macOS or Linux. Choose this if you use Linux or want to change Nod's code. On a Mac or Windows PC, the [desktop app](/get-started/install-desktop/) is quicker.
+
+To run Nod on a VPS, cloud VM, or Mac mini and reach it from other devices, use [Host your own server](/deploy/self-host/).
+
+## Requirements
+
+| You need         | Version or detail                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js          | 24.21.0 or newer                                                                                                                                                     |
+| pnpm             | 10.34.5, enabled through Corepack                                                                                                                                    |
+| Docker           | With Compose v2, running, for example Docker Desktop on a Mac                                                                                                        |
+| Git              | Any recent version                                                                                                                                                   |
+| Model connection | A [supported model service](/connect/models/) with its required credentials, a ChatGPT plan that supports sign-in, or a [local model](/connect/local-models/) server |
+
+## What `pnpm start` runs
+
+`pnpm start` installs dependencies when they changed, builds the web app and starts three Docker containers. Then it starts the Nod server, which serves the web app on `127.0.0.1`.
+
+```mermaid
+flowchart LR
+  you([Your browser]):::accent -- access link --> server[Nod server<br/>and web app]:::accent
+  server --> db[(PostgreSQL)]
+  server --> ws[Workspace<br/>container]
+  server --> br[Browser<br/>container]
+  server -.-> model[Your model<br/>provider]:::muted
+```
+
+The workspace is where Nod runs commands and keeps files. The browser is where it visits websites. Neither of them receives your provider keys.
+
+## Get the code
+
+```sh title="Terminal"
+git clone https://github.com/n8n-io/nod.git
+cd nod
+```
+
+## Set up the Vault key
+
+Nod encrypts your saved keys, logins and cards with a Vault key.
+
+<Tabs syncKey="platform">
+<TabItem label="macOS" icon="apple">
+
+Nothing to do. Nod creates a key and keeps it in the macOS Keychain item `dev.nod.vault`.
+
+</TabItem>
+<TabItem label="Linux" icon="linux">
+
+Nothing to do for a fresh install. Nod creates a private key at `NOD_DATA_ROOT/vault/master-key` (`.local/vault/master-key` by default). Keep it with your backup; saved credentials can't be read without it.
+
+You can instead set `NOD_VAULT_KEY` yourself. If encrypted data already exists, restore its original key rather than generating a new one. See [Vault configuration](/deploy/configuration/#vault).
+
+</TabItem>
+</Tabs>
+
+## Start Nod
+
+<Steps>
+
+1. Enable pnpm and start Nod. The first run takes a while.
+
+   ```sh title="Terminal"
+   corepack enable
+   pnpm start
+   ```
+
+2. When the server is ready, it prints a link such as `http://localhost:4310/#access=…`. Open it once. Your browser keeps the access cookie, so `http://localhost:4310` works from then on.
+
+3. Follow the onboarding to connect a model and try a first task. See [Your first conversation](/get-started/first-conversation/).
+
+</Steps>
+
+:::caution[Access from other devices]
+This source setup listens on your computer's loopback interface. For network access, follow [Host your own server](/deploy/self-host/) to configure a server token and HTTPS.
+:::
+
+## Run Nod day to day
+
+| To             | Do this                                                                                                                                                                            |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stop Nod       | Press Ctrl-C, then run `docker compose stop` to stop the containers.                                                                                                               |
+| Update Nod     | Stop it, run `git pull`, then `pnpm start`.                                                                                                                                        |
+| Get a new link | Delete `access-key` in your data folder (`.local/` by default) and restart. Otherwise the key stays the same across restarts.                                                      |
+| Find your data | `.local/` (or `NOD_DATA_ROOT`) and the Docker volumes. The Vault key is in `vault/master-key` on Linux, the macOS Keychain item `dev.nod.vault`, or your explicit `NOD_VAULT_KEY`. |
+| Back up        | Stop Nod, then copy your data folder (`.local/` or `NOD_DATA_ROOT`), the Docker volumes and the Vault key.                                                                         |
+
+:::caution
+There's no tested restore procedure yet. Keep your Vault key with your backup, or your saved credentials can't be read.
+:::
+
+Settings live in `.env`, and you need to restart after you change them. See [Configuration](/deploy/configuration/).
+
+## Troubleshooting
+
+| You see                           | Do this                                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Use Node.js 24.21.0 or newer.`   | Install a newer Node.js and run `pnpm start` again.                                                                                                           |
+| Docker errors on start            | Make sure Docker is running and `docker compose version` reports v2.                                                                                          |
+| A missing or unreadable Vault key | Restore the original key and check its permissions. Don't generate a replacement for encrypted data. See [Vault configuration](/deploy/configuration/#vault). |
+| The port is in use                | Set another `PORT` in `.env`. The default is `4310`.                                                                                                          |
+
+## Related resources
+
+- [What is Nod](/get-started/what-is-nod/)
+- [Install the desktop app](/get-started/install-desktop/)
+- [Your first conversation](/get-started/first-conversation/)
+- [Configuration](/deploy/configuration/)
+- [Host your own server](/deploy/self-host/)
+- [Troubleshooting](/deploy/troubleshooting/)

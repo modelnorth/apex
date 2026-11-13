@@ -1,0 +1,176 @@
+.usage {
+  display: grid;
+  gap: 32px;
+}
+.usage-overview {
+  display: grid;
+  gap: 12px;
+}
+.usage-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.usage-plan-note {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.usage-month {
+  display: grid;
+  gap: 12px;
+  width: min(388px, calc(100vw - 64px));
+}
+.usage-month > span {
+  font-size: var(--text-control);
+}
+.usage-month > .is-over {
+  color: var(--link);
+}
+.usage-limit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 320px;
+}
+.usage-limit-form > small {
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+.usage-limit-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  color: var(--muted-foreground);
+}
+.usage-limit-input .input {
+  width: 96px;
+  min-height: var(--control-height-sm);
+  appearance: textfield;
+}
+.usage-limit-input .input::-webkit-inner-spin-button,
+.usage-limit-input .input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.usage-row-cost {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  flex-shrink: 0;
+  font-size: var(--text-control);
+  font-variant-numeric: tabular-nums;
+}
+.usage-row-cost small,
+.vault-use-text .usage-model-source {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.vault-use-text .usage-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.vault-use-text .usage-models > span {
+  color: var(--foreground);
+}
+.usage-row-cost.is-label {
+  color: var(--muted-foreground);
+}
+.vault-use-text span.is-error {
+  color: var(--error);
+}
+.usage-chart {
+  display: block;
+  width: 100%;
+  height: 96px;
+  overflow: visible;
+  cursor: crosshair;
+}
+.usage-chart:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.usage-chart-detail {
+  width: 100%;
+}
+.usage-chart-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.usage-chart-summary strong {
+  margin-left: auto;
+  font-size: var(--text-control);
+  font-weight: 550;
+  color: var(--foreground);
+}
+.usage-chart-summary small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.usage-chart-dates {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.usage-chart-cursor {
+  stroke: var(--border);
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.usage-chart-point {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.usage-chart-area {
+  fill: var(--surface-subtle);
+}
+.usage-chart-spent,
+.usage-chart-forecast,
+.usage-chart-limit {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.usage-chart-spent {
+  stroke: var(--foreground);
+  stroke-linejoin: round;
+}
+.usage-chart-forecast {
+  stroke: var(--muted-foreground);
+  stroke-dasharray: 4 6;
+}
+.usage-chart-limit {
+  stroke: var(--brand-pink);
+  stroke-dasharray: 6 6;
+}
+
+.usage-filter {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.usage-filter button {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

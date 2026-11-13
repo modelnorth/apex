@@ -1,0 +1,28 @@
+.ob-personal-choices {
+  display: grid;
+  gap: 16px;
+}
+.ob-personal-muted {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.ob-personal-manage {
+  color: var(--muted-foreground);
+}
+.ob-personal-retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-control);
+}
+.connect-row > .ob-personal-retry {
+  flex-basis: 100%;
+}
+.ob-composio {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  mask: center / contain no-repeat;
+}

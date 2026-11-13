@@ -1,0 +1,167 @@
+.secondary-heading-actions {
+  position: relative;
+}
+.schedule-editor-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, calc(100vw - 32px));
+  height: min(720px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 28px;
+  border-radius: 24px;
+  overflow: hidden;
+}
+.schedule-editor-dialog > h2 {
+  flex: none;
+  margin: 0 32px 24px 0;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.schedule-editor-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.schedule-editor-fields {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 20px;
+  min-height: 0;
+  margin: -4px;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.schedule-editor-fields > .field {
+  margin: 0;
+}
+.schedule-editor-fields input.input {
+  border-radius: var(--radius-full);
+}
+.schedule-editor-fields textarea {
+  min-height: 108px;
+  max-height: 220px;
+  border-radius: 16px;
+  resize: vertical;
+  line-height: 1.55;
+}
+.schedule-editor-timing {
+  display: grid;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.schedule-editor-timing .schedule-timing-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.schedule-editor-timing .schedule-timing-fields[data-columns='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.schedule-editor-timing .schedule-time-zone,
+.schedule-editor-timing .schedule-timing-fields[data-custom] > :first-child {
+  grid-column: 1 / -1;
+}
+.schedule-editor-status {
+  min-height: 42px;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  line-height: 1.5;
+}
+.schedule-editor-status[data-error] {
+  color: var(--error);
+}
+.schedule-editor-timing > .field-hint,
+.schedule-editor-fields > .notice {
+  margin: 0;
+}
+.schedule-editor-form > .schedule-timing-actions {
+  flex: none;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.schedule-timing {
+  display: grid;
+  gap: 12px;
+}
+.schedule-timing > .field-hint,
+.schedule-timing > .notice {
+  margin: 0;
+}
+.schedule-timing-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.schedule-timing-fields > .field,
+.schedule-timing-field {
+  display: grid;
+  flex: 1 1 130px;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.schedule-timing-field.schedule-time-zone {
+  flex: 1.5 1 190px;
+}
+.schedule-timing-fields .input {
+  width: 100%;
+}
+.schedule-timing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+.task-schedule-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.task-schedule-form > .field {
+  margin: 0;
+}
+.task-schedule-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.plan-toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 20px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+}
+.plan-toast .notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding-block: 4px;
+}
+@media (max-width: 640px) {
+  .schedule-editor-dialog {
+    padding: 24px;
+  }
+  .schedule-editor-timing .schedule-timing-fields[data-columns='3'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .schedule-editor-timing .schedule-timing-fields[data-columns='3'] > :first-child {
+    grid-column: 1 / -1;
+  }
+  .schedule-timing-field.schedule-time-zone {
+    flex-basis: 100%;
+  }
+  .plan-toast {
+    top: 64px;
+    bottom: auto;
+  }
+}

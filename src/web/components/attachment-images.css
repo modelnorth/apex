@@ -1,0 +1,287 @@
+.message-attachments:has(.attachment-image-gallery) {
+  display: block;
+}
+
+.attachment-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: 320px;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+.attachment-image-gallery.is-single {
+  display: block;
+}
+
+.attachment-image-item {
+  position: relative;
+  min-width: 0;
+}
+
+.attachment-inline-video {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+}
+
+.attachment-inline-video > video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+.attachment-image-item:has(.attachment-inline-video) {
+  grid-column: 1 / -1;
+}
+
+.attachment-image-gallery.is-single:has(.attachment-inline-video) {
+  width: 360px;
+}
+
+.attachment-video-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.attachment-video-toolbar > .button {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--muted-foreground);
+  pointer-events: auto;
+}
+
+.attachment-video-more {
+  position: absolute;
+  bottom: 48px;
+  right: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+  font-size: var(--text-control);
+  cursor: pointer;
+}
+
+.attachment-image-gallery.is-single:has(> .attachment-image-item > .is-image) {
+  width: fit-content;
+  max-width: min(100%, 320px);
+}
+
+.attachment-image-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 145px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+  cursor: zoom-in;
+}
+
+.attachment-image-gallery.is-single:has(> .attachment-image-item > .is-sticker) {
+  width: 180px;
+}
+
+.attachment-image-tile.is-sticker {
+  height: 180px;
+  border: 0;
+  background: transparent;
+}
+
+.attachment-image-tile.is-sticker img,
+.attachment-image-tile.is-sticker video {
+  object-fit: contain;
+}
+
+.sticker-player {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+}
+
+.sticker-player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.sticker-player-status {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.artifact-stage.is-sticker .sticker-player {
+  width: min(100%, 512px);
+  height: auto;
+  aspect-ratio: 1;
+  margin: auto;
+}
+
+.attachment-image-gallery.is-grid .attachment-image-tile {
+  height: 122px;
+}
+
+.attachment-image-tile img,
+.attachment-image-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachment-image-gallery.is-single .attachment-image-tile.is-image:not(.is-sticker) {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+}
+
+.attachment-image-gallery.is-single .is-image:not(.is-sticker) img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 250px;
+  object-fit: contain;
+}
+
+.attachment-image-tile img.is-vector {
+  padding: 8px;
+  background: white;
+  object-fit: contain;
+}
+
+.attachment-image-tile.is-selected,
+.attachment-inline-video.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.attachment-media-thumbnail,
+.attachment-media-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  font-size: var(--text-control);
+  color: var(--muted-foreground);
+}
+
+.attachment-document-name {
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-media-label {
+  position: absolute;
+  inset: 0;
+  background: var(--image-overlay);
+  color: var(--image-foreground);
+  pointer-events: none;
+}
+
+.attachment-image-tile video {
+  pointer-events: none;
+}
+
+.attachment-image-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--image-overlay);
+  color: var(--image-foreground);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.attachment-image-tile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+[data-attachment-pointer-focus]:focus-visible {
+  outline: none;
+}
+
+.attachment-table-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.attachment-table-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.attachment-pdf-page {
+  position: relative;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+.attachment-pdf-page canvas {
+  max-width: 100%;
+  background: white;
+}
+
+.attachment-pdf-pages .attachment-pdf-page {
+  flex: none;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0;
+  background: white;
+  box-shadow: 0 1px 4px #0002;
+}
+
+.attachment-pdf-pages canvas {
+  flex-shrink: 0;
+  max-width: none;
+}
+
+.attachment-pdf-loading {
+  align-self: center;
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+
+@container (min-width: 641px) {
+  .attachment-image-gallery.is-single .is-image:not(.is-sticker) img {
+    max-width: 320px;
+  }
+}

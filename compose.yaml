@@ -1,0 +1,92 @@
+name: nod-local
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nod
+      POSTGRES_PASSWORD: ${NOD_POSTGRES_PASSWORD:?Run npm run dev to prepare the local database}
+      POSTGRES_DB: nod
+    ports:
+      - '127.0.0.1:54329:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nod']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  browser:
+    build:
+      context: .
+      dockerfile: Dockerfile.browser
+    container_name: nod-browser
+    hostname: nod-browser
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    pids_limit: 4096
+    mem_limit: 8g
+    cpus: 6
+    shm_size: 1g
+    volumes:
+      - browser-data:/data
+    tmpfs:
+      - /tmp:size=1g
+      - /home/node:uid=1000,gid=1000,mode=700,size=256m
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'const s=require("node:net").connect("/data/control.sock");s.on("connect",()=>{s.end();process.exit(0)});s.on("error",()=>process.exit(1))',
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile.workspace
+    image: nod-local-workspace
+    container_name: nod-workspace
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 4096
+    mem_limit: 8g
+    cpus: 4
+    volumes:
+      - ${NOD_DATA_ROOT:-./.local}/workspaces:/workspace
+      - workspace-tools:/home/node
+    network_mode: service:workspace-network
+    depends_on:
+      workspace-network:
+        condition: service_healthy
+        restart: true
+    command: ['sleep', 'infinity']
+  workspace-network:
+    image: nod-local-workspace
+    pull_policy: never
+    dns: [1.1.1.1, 8.8.8.8]
+    user: root
+    init: true
+    entrypoint: /usr/local/bin/nod-workspace-network
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs:
+      - /tmp:size=1m
+    pids_limit: 32
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/network-ready']
+      interval: 2s
+      timeout: 3s
+      retries: 10
+volumes:
+  postgres-data:
+  workspace-tools:
+  browser-data:

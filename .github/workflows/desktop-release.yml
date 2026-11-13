@@ -1,0 +1,710 @@
+name: Build desktop release
+
+on:
+  push:
+    branches: [main]
+    paths: [desktop/release.json]
+  workflow_dispatch:
+    inputs:
+      automatic:
+        description: Select the next patch from tested main without a release metadata PR
+        type: boolean
+        default: false
+      publish:
+        description: Publish one checked Nod release with all three installers
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  NOD_RELEASE_SOURCE: ${{ github.sha }}
+
+concurrency:
+  group: desktop-build-release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  plan:
+    name: Check release prerequisites
+    if: github.ref == 'refs/heads/main'
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 60
+    environment:
+      name: release
+      deployment: false
+    env:
+      NOD_RELEASE_TARGETS: all
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    outputs:
+      release_needed: ${{ steps.plan.outputs.release_needed }}
+      mac_matrix: ${{ steps.plan.outputs.mac_matrix }}
+      runtime_matrix: ${{ steps.plan.outputs.runtime_matrix }}
+      runtime_needed: ${{ steps.plan.outputs.runtime_needed }}
+      metadata_sha256: ${{ steps.plan.outputs.metadata_sha256 }}
+      source: ${{ steps.plan.outputs.source }}
+      version: ${{ steps.plan.outputs.version }}
+      previous_tag: ${{ steps.plan.outputs.previous_tag }}
+      runtime_tag: ${{ steps.plan.outputs.runtime_tag }}
+      runtime_fingerprint: ${{ steps.plan.outputs.runtime_fingerprint }}
+      runtime_base_url: ${{ steps.plan.outputs.runtime_base_url }}
+      runtime_reused: ${{ steps.plan.outputs.runtime_reused }}
+      runtime_public: ${{ steps.plan.outputs.runtime_public }}
+      windows_runtime_fingerprint: ${{ steps.plan.outputs.windows_runtime_fingerprint }}
+      windows_runtime_tag: ${{ steps.plan.outputs.windows_runtime_tag }}
+      runtime_refresh: ${{ steps.plan.outputs.runtime_refresh }}
+    steps:
+      - name: Check out the requested main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.NOD_RELEASE_SOURCE }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+      - name: Wait for CI on the release commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          until run=$(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b main -c "$NOD_RELEASE_SOURCE" -L 1 --json databaseId --jq '.[0].databaseId // empty') && [ -n "$run" ]; do sleep 10; done
+          gh run watch "$run" -R "$GITHUB_REPOSITORY" --exit-status --interval 30 > /dev/null
+      - name: Rebuild runtimes at least weekly
+        run: echo "NOD_RUNTIME_REFRESH=$(date -u -d "-$(( $(date -u +%u) - 1 )) days" +%F)" >> "$GITHUB_ENV"
+      - name: Require tested source, signing configuration and runtime integrity
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+          APPLE_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && vars.APPLE_SIGNING_IDENTITY != '' && vars.APPLE_CERTIFICATE_SHA256 != '' && ((vars.NOD_SIGNING_MODE || 'self-signed') == 'self-signed' || (secrets.APPLE_API_KEY != '' && vars.APPLE_API_KEY_ID != '' && vars.APPLE_API_ISSUER != '' && vars.APPLE_TEAM_ID != '')) }}
+          NOD_AUTOMATIC_RELEASE: ${{ inputs.automatic || false }}
+        run: node .github/scripts/desktop-release.mjs plan
+      - name: Save original release context
+        if: steps.plan.outputs.release_needed == 'true'
+        env:
+          NOD_CONTEXT_SOURCE: ${{ steps.plan.outputs.source }}
+          NOD_CONTEXT_VERSION: ${{ steps.plan.outputs.version }}
+          NOD_CONTEXT_RUNTIME_REFRESH: ${{ steps.plan.outputs.runtime_refresh }}
+          NOD_CONTEXT_MAC_MATRIX: ${{ steps.plan.outputs.mac_matrix }}
+          NOD_CONTEXT_PLAN_SHA256: ${{ steps.plan.outputs.metadata_sha256 }}
+          NOD_CONTEXT_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+          NOD_CONTEXT_PRIVATE: ${{ github.event.repository.private && 'true' || 'false' }}
+        run: node .github/scripts/desktop-release-recovery.mjs create
+      - name: Save original context for release recovery
+        if: steps.plan.outputs.release_needed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-release-context
+          path: .local/desktop-release-context.json
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
+      - name: Save source-bound release metadata
+        if: steps.plan.outputs.metadata_sha256 != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-release-plan
+          path: .local/desktop-release-plan.json
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
+      - name: Save reusable Mac runtime descriptors
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-reused-runtime-descriptors
+          path: .local/desktop-runtime-release
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: ignore
+
+  images:
+    name: Build ${{ matrix.arch }} Mac runtime images
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true' && needs.plan.outputs.runtime_needed == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.runtime_matrix) }}
+    runs-on: ${{ matrix.linux_runner }}
+    timeout-minutes: 40
+    environment:
+      name: release
+      deployment: false
+    env:
+      NOD_DESKTOP_TARGET: ${{ matrix.platform }}
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+      NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+      NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+      NOD_RUNTIME_REFRESH: ${{ needs.plan.outputs.runtime_refresh }}
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+      - name: Install validation dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Set up Docker build cache
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267
+        with:
+          cache-key: n8n-io/nod/desktop-images-${{ matrix.arch }}
+      - name: Build the workspace image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile.workspace
+          platforms: linux/${{ matrix.docker_arch }}
+          load: true
+          build-args: NOD_RUNTIME_REFRESH=${{ needs.plan.outputs.runtime_refresh }}
+          tags: nod-desktop-workspace:experiment
+      - name: Build the browser image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile.browser
+          platforms: linux/${{ matrix.docker_arch }}
+          load: true
+          build-args: NOD_RUNTIME_REFRESH=${{ needs.plan.outputs.runtime_refresh }}
+          tags: nod-desktop-browser:experiment
+      - name: Verify and export the native images
+        run: node desktop/scripts/prepare-runtime.mjs --images-only --prebuilt-images
+      - name: Transfer compressed image archives
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-runtime-images-${{ matrix.arch }}
+          path: |
+            .local/desktop-runtime-assets/images/*.tar.zst
+            .local/desktop-runtime-assets/images-manifest.json
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  mac-checks:
+    name: Check ${{ matrix.arch }} Mac updates
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.mac_matrix) }}
+    runs-on: ${{ matrix.mac_runner }}
+    timeout-minutes: 45
+    environment:
+      name: release
+      deployment: false
+    env:
+      NOD_DESKTOP_TARGET: ${{ matrix.platform }}
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+      NOD_DESKTOP_VERSION: ${{ needs.plan.outputs.version }}
+      NOD_RELEASE_BUILD: 'true'
+      NOD_DESKTOP_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+      NOD_EXPECTED_RUNTIME_FINGERPRINT: ${{ matrix.runtime_fingerprint }}
+      NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+      NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+      NOD_RUNTIME_REFRESH: ${{ needs.plan.outputs.runtime_refresh }}
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Install Rosetta for the Intel build
+        if: matrix.arch == 'x64'
+        run: /usr/bin/arch -x86_64 /usr/bin/true || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          architecture: ${{ matrix.node_arch }}
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Cache Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/Library/Caches/electron
+          key: desktop-electron-${{ matrix.arch }}-${{ hashFiles('desktop/pnpm-lock.yaml') }}
+      - name: Install and build without signing credentials
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir desktop install --frozen-lockfile
+          pnpm run build
+      - name: Verify native updates, signature rejection and profile preservation
+        run: node desktop/scripts/check-native-updates.mjs
+      - name: Save native update acceptance receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-update-acceptance-${{ matrix.arch }}
+          path: .local/native-update-acceptance/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  mac:
+    name: Package the ${{ matrix.arch }} Mac app
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.mac_matrix) }}
+    runs-on: ${{ matrix.mac_runner }}
+    timeout-minutes: 90
+    environment:
+      name: release
+      deployment: false
+    permissions:
+      actions: read
+      contents: read
+    env:
+      NOD_DESKTOP_TARGET: ${{ matrix.platform }}
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+      NOD_DESKTOP_VERSION: ${{ needs.plan.outputs.version }}
+      NOD_RELEASE_BUILD: 'true'
+      NOD_DESKTOP_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+      NOD_EXPECTED_RUNTIME_FINGERPRINT: ${{ matrix.runtime_fingerprint }}
+      NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+      NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+      NOD_RUNTIME_REFRESH: ${{ needs.plan.outputs.runtime_refresh }}
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Install Rosetta for the Intel build
+        if: matrix.arch == 'x64'
+        run: /usr/bin/arch -x86_64 /usr/bin/true || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          architecture: ${{ matrix.node_arch }}
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Cache Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/Library/Caches/electron
+          key: desktop-electron-${{ matrix.arch }}-${{ hashFiles('desktop/pnpm-lock.yaml') }}
+      - name: Install and build without signing credentials
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir desktop install --frozen-lockfile
+          pnpm run build
+      - name: Wait for this Mac's runtime images
+        if: matrix.runtime_reused != 'true'
+        timeout-minutes: 40
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOD_IMAGE_ARCH: ${{ matrix.arch }}
+        run: |
+          runs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          until [ "$(gh api "$runs/artifacts?name=desktop-runtime-images-$NOD_IMAGE_ARCH" --jq .total_count)" = 1 ]; do
+            result=$(gh api "$runs/attempts/$GITHUB_RUN_ATTEMPT/jobs" --paginate --jq ".jobs[] | select(.name == \"Build $NOD_IMAGE_ARCH Mac runtime images\") | .conclusion // empty")
+            if [ -n "$result" ] && [ "$result" != success ]; then echo "The $NOD_IMAGE_ARCH image build ended with $result." >&2; exit 1; fi
+            sleep 10
+          done
+      - name: Download image archives
+        if: matrix.runtime_reused != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: desktop-runtime-images-${{ matrix.arch }}
+          path: .local/desktop-runtime-assets
+      - name: Cache verified runtime downloads and Go compilation
+        if: matrix.runtime_reused != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            .local/desktop-runtime-downloads
+          key: desktop-host-${{ matrix.arch }}-${{ hashFiles('desktop/runtime/downloads.json', 'desktop/scripts/runtime-build-lock.json', 'desktop/scripts/build-lima.mjs', 'desktop/scripts/prepare-runtime.mjs') }}
+      - name: Prepare compatible runtime host tools
+        if: matrix.runtime_reused != 'true'
+        run: node desktop/scripts/prepare-runtime.mjs --host-only
+      - name: Sign and package runtime binaries
+        if: matrix.runtime_reused != 'true'
+        env:
+          NOD_RUNTIME_FINGERPRINT: ${{ matrix.runtime_fingerprint }}
+          NOD_RUNTIME_RELEASE_TAG: nod-v${{ needs.plan.outputs.version }}
+          NOD_RUNTIME_RELEASE_BASE_URL: ${{ (github.event_name == 'push' || inputs.publish) && matrix.runtime_public == 'true' && matrix.runtime_base_url || '' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+        run: node .github/scripts/with-apple-signing.mjs node desktop/scripts/runtime-pack.mjs --release
+      - name: Save the checked runtime pack
+        if: matrix.runtime_reused != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-runtime-pack-${{ matrix.arch }}
+          path: .local/desktop-runtime-release/*.tar.gz
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+      - name: Download the reused runtime descriptors
+        if: matrix.runtime_reused == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: desktop-reused-runtime-descriptors
+          path: .local/reused-runtime-descriptors
+      - name: Select this Mac runtime descriptor
+        if: matrix.runtime_reused == 'true'
+        run: |
+          mkdir -p .local/desktop-runtime-release
+          cp ".local/reused-runtime-descriptors/${{ matrix.arch }}/runtime-release.json" .local/desktop-runtime-release/runtime-release.json
+      - name: Bind the checked runtime descriptor
+        if: (github.event_name == 'push' || inputs.publish) && matrix.runtime_public == 'true' && matrix.runtime_reused != 'true'
+        run: echo "NOD_PENDING_RUNTIME_DESCRIPTOR_SHA256=$(shasum -a 256 .local/desktop-runtime-release/runtime-release.json | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+      - name: Download source-bound release metadata
+        if: needs.plan.outputs.metadata_sha256 != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: desktop-release-plan
+          path: .local
+      - name: Sign, package and verify the app
+        env:
+          NOD_RELEASE_PLAN: ${{ needs.plan.outputs.metadata_sha256 && '.local/desktop-release-plan.json' || '' }}
+          NOD_RELEASE_PLAN_SHA256: ${{ needs.plan.outputs.metadata_sha256 }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ vars.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          NOD_TRACES_TOKEN: ${{ secrets.NOD_TRACES_TOKEN }}
+        run: >-
+          node .github/scripts/with-apple-signing.mjs
+          pnpm --dir desktop run build --release
+          --runtime-descriptor "$GITHUB_WORKSPACE/.local/desktop-runtime-release/runtime-release.json" --no-runtime-archive
+      - name: Save the release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-macos-${{ matrix.arch }}
+          path: |
+            dist/desktop/*.dmg
+            dist/desktop/*.zip
+            dist/desktop/SHA256SUMS
+            dist/desktop/release.json
+            dist/desktop/update.json
+            dist/desktop/runtime-release.json
+            dist/desktop/signing.cer
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+      - name: Clean signing material after interruption
+        if: always()
+        run: node .github/scripts/with-apple-signing.mjs --cleanup
+
+  windows-runtime:
+    name: Build the Windows runtime
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true'
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    timeout-minutes: 60
+    env:
+      NOD_RUNTIME_ASSETS: .local/windows-runtime-assets
+      NOD_WINDOWS_RUNTIME_TAG: ${{ needs.plan.outputs.windows_runtime_tag }}
+      NOD_WINDOWS_RUNTIME_FINGERPRINT: ${{ needs.plan.outputs.windows_runtime_fingerprint }}
+      NOD_RUNTIME_REFRESH: ${{ needs.plan.outputs.runtime_refresh }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+      - name: Reuse the published Windows runtime
+        if: env.NOD_WINDOWS_RUNTIME_TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/desktop-release.mjs reuse-windows-runtime
+      - if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        run: pnpm install --frozen-lockfile
+      - name: Set up Docker build cache
+        if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267
+        with:
+          cache-key: n8n-io/nod/desktop-images-win32-x64
+      - name: Build the workspace image
+        if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile.workspace
+          platforms: linux/amd64
+          load: true
+          build-args: NOD_RUNTIME_REFRESH=${{ needs.plan.outputs.runtime_refresh }}
+          tags: nod-desktop-workspace:experiment
+      - name: Build the browser image
+        if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          file: Dockerfile.browser
+          platforms: linux/amd64
+          load: true
+          build-args: NOD_RUNTIME_REFRESH=${{ needs.plan.outputs.runtime_refresh }}
+          tags: nod-desktop-browser:experiment
+      - name: Verify and export the native images
+        if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        env:
+          NOD_DESKTOP_TARGET: win32-x64
+        run: node desktop/scripts/prepare-runtime.mjs --images-only --prebuilt-images
+      - name: Build the Windows root filesystem
+        if: env.NOD_WINDOWS_RUNTIME_TAG == ''
+        env:
+          NOD_DESKTOP_TARGET: win32-x64
+        run: node desktop/scripts/prepare-windows-runtime.mjs --prebuilt-images
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-windows-runtime
+          path: |
+            .local/windows-runtime-assets/guest.tar.gz
+            .local/windows-runtime-assets/manifest.json
+            .local/windows-runtime-assets/runtime-win32-x64-*.json
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  windows-checks:
+    name: Check Windows updates
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 45
+    environment:
+      name: release
+      deployment: false
+    env:
+      NOD_DESKTOP_VERSION: ${{ needs.plan.outputs.version }}
+      NOD_RELEASE_BUILD: 'true'
+      NOD_DESKTOP_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.8'
+          cache: false
+      - run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir desktop install --frozen-lockfile
+          choco install nsis --yes --no-progress
+      - name: Download verified Windows Electron
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node desktop/scripts/prepare-windows-electron.mjs
+      - name: Verify native Windows updates and profile preservation
+        run: node desktop/scripts/check-windows-updates.mjs
+      - name: Preserve Windows update acceptance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-update-acceptance
+          path: .local/windows-update-acceptance/*.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+      - name: Check Windows workspace paths
+        run: pnpm exec tsx --test --test-name-pattern="workspace paths cannot|workspace artifact reads" tests/sandbox.test.ts
+
+  windows:
+    name: Package and check the Windows installer
+    needs: plan
+    if: needs.plan.outputs.release_needed == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 60
+    environment:
+      name: release
+      deployment: false
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      NOD_DESKTOP_VERSION: ${{ needs.plan.outputs.version }}
+      NOD_RELEASE_BUILD: 'true'
+      NOD_DESKTOP_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.8'
+          cache: false
+      - run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir desktop install --frozen-lockfile
+          choco install nsis --yes --no-progress
+      - name: Download verified Windows Electron
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node desktop/scripts/prepare-windows-electron.mjs
+      - run: pnpm run build
+      - name: Wait for the Windows runtime
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          until [ "$(gh api "$runs/artifacts?name=desktop-windows-runtime" --jq .total_count)" = 1 ]; do
+            result=$(gh api "$runs/attempts/$GITHUB_RUN_ATTEMPT/jobs" --paginate --jq '.jobs[] | select(.name == "Build the Windows runtime") | .conclusion')
+            if [ -n "$result" ] && [ "$result" != success ]; then echo "The Windows runtime build ended with $result." >&2; exit 1; fi
+            sleep 10
+          done
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: desktop-windows-runtime
+          path: .local/windows-runtime-assets
+      - name: Package the Windows installer
+        env:
+          NOD_TRACES_TOKEN: ${{ secrets.NOD_TRACES_TOKEN }}
+        run: node desktop/scripts/build-windows.mjs
+      - run: node desktop/scripts/check-windows.mjs
+      - run: Copy-Item .local/windows-runtime-assets/runtime-win32-x64-*.json dist/windows/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-windows-x64
+          path: |
+            dist/windows/runtime-win32-x64-*.json
+            dist/windows/nod-Setup-x64.exe
+            dist/windows/nod-Runtime-win32-x64.tar.gz
+            dist/windows/SHA256SUMS
+            dist/windows/release-win32-x64.json
+            dist/windows/windows-check.json
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+  release:
+    name: Verify uploaded assets and prepare the release
+    needs: [plan, images, mac, mac-checks, windows, windows-checks]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped') && needs.mac.result == 'success' && needs.mac-checks.result == 'success' && needs.windows.result == 'success' && needs.windows-checks.result == 'success' }}
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    timeout-minutes: 30
+    environment: release
+    env:
+      NOD_SIGNING_MODE: ${{ vars.NOD_SIGNING_MODE || 'self-signed' }}
+      NOD_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+      NOD_SIGNING_CERTIFICATE_SHA256: ${{ vars.APPLE_CERTIFICATE_SHA256 }}
+      NOD_EXPECTED_RUNTIME_FINGERPRINT: ${{ needs.plan.outputs.runtime_fingerprint }}
+      NOD_DESKTOP_UPDATE_SOURCE_URL: ${{ github.event.repository.private && vars.NOD_DESKTOP_UPDATE_SOURCE_URL || '' }}
+      NOD_RELEASE_PLAN: ${{ needs.plan.outputs.metadata_sha256 && '.local/desktop-release-plan.json' || '' }}
+      NOD_RELEASE_PLAN_SHA256: ${{ needs.plan.outputs.metadata_sha256 }}
+      NOD_RUNTIME_REFRESH: ${{ needs.plan.outputs.runtime_refresh }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+      - name: Download the release assets in parallel
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: desktop-@(macos-*|runtime-pack-*|windows-x64)
+          path: .local/desktop-release-artifacts
+      - name: Place the release assets in their platform directories
+        run: |
+          mkdir -p dist/desktop .local/desktop-runtime-release
+          mv .local/desktop-release-artifacts/desktop-macos-arm64 dist/desktop/arm64
+          mv .local/desktop-release-artifacts/desktop-macos-x64 dist/desktop/x64
+          mv .local/desktop-release-artifacts/desktop-windows-x64 dist/desktop/win32-x64
+          for arch in arm64 x64; do
+            if [ -d ".local/desktop-release-artifacts/desktop-runtime-pack-$arch" ]; then
+              mv ".local/desktop-release-artifacts/desktop-runtime-pack-$arch" ".local/desktop-runtime-release/$arch"
+            fi
+          done
+      - name: Download source-bound release metadata
+        if: needs.plan.outputs.metadata_sha256 != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: desktop-release-plan
+          path: .local
+      - name: Verify release files and prepare provenance subjects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/desktop-release.mjs stage-all
+      - name: Sign release provenance
+        id: provenance
+        if: ${{ !github.event.repository.private || vars.NOD_PRIVATE_ATTESTATIONS == 'true' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-checksums: .local/release-SHA256SUMS
+      - name: Preserve the original build provenance
+        if: steps.provenance.outputs.bundle-path != ''
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: cp "$PROVENANCE_BUNDLE" .local/nod-release-provenance.sigstore.json
+      - name: Save provenance for release recovery
+        if: steps.provenance.outputs.bundle-path != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-release-provenance
+          path: .local/nod-release-provenance.sigstore.json
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
+      - name: Verify GitHub asset digests and downloaded release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOD_PRIVATE_ATTESTATIONS: ${{ vars.NOD_PRIVATE_ATTESTATIONS }}
+          NOD_RELEASE_ATTESTATION: ${{ steps.provenance.outputs.bundle-path }}
+          NOD_PUBLISH_RELEASE: ${{ github.event_name == 'push' || inputs.publish }}
+        run: node .github/scripts/desktop-release.mjs draft-all

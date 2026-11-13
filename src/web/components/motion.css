@@ -1,0 +1,214 @@
+.ob-glyph {
+  display: block;
+  overflow: visible;
+}
+.ob-glyph-pulse {
+  transform-box: view-box;
+  transform-origin: 25px 6px;
+  animation: ob-pulse 2.8s ease-in-out 2;
+}
+.ob-glyph-orbit {
+  transform-box: view-box;
+  transform-origin: 16px 16px;
+}
+.ob-glyph-orbit[data-phase='spin'] {
+  animation: ob-spin 1.1s linear infinite;
+}
+.ob-glyph-orbit[data-phase='settle'] {
+  animation: ob-spin-out 1.6s cubic-bezier(0.33, 0.48, 0.4, 1);
+}
+.ob-glyph-orbiting > .ob-glyph-orbit {
+  transition: transform 300ms linear;
+}
+.ob-glyph-track {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+.ob-glyph-trail {
+  stroke: var(--brand-pink);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  transition: stroke-dasharray 300ms linear;
+}
+.ob-glyph-receiving {
+  transform-box: view-box;
+  transform-origin: 25px 6px;
+  animation: ob-receiving 1.2s ease-in-out infinite;
+}
+.ob-glyph-waiting {
+  animation: ob-waiting 2.4s ease-in-out infinite;
+}
+.ob-glyph-react {
+  transform-box: view-box;
+  transform-origin: 25px 6px;
+}
+.ob-glyph-react[data-reaction='on'] {
+  animation: ob-dot-hop 480ms var(--ease-enter);
+}
+.ob-glyph-react[data-reaction='off'] {
+  animation: ob-dot-droop 440ms var(--ease-enter);
+}
+@keyframes ob-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+@keyframes ob-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ob-spin-out {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ob-receiving {
+  50% {
+    transform: scale(1.25);
+  }
+}
+@keyframes ob-waiting {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes ob-dot-hop {
+  30% {
+    transform: translate(2px, -5px) scale(1.35);
+  }
+  55% {
+    transform: translate(1px, 0) scale(0.9, 1.1);
+  }
+  75% {
+    transform: translate(0.5px, -1.5px) scale(1.06);
+  }
+}
+@keyframes ob-dot-droop {
+  35% {
+    opacity: 0.6;
+    transform: translate(-1.5px, 3px) scale(0.75);
+  }
+  70% {
+    transform: translate(-0.5px, 0.5px) scale(1.04);
+  }
+}
+.brand-glyph svg > circle:last-child {
+  transform-box: view-box;
+  transform-origin: 25px 6px;
+}
+.sidebar .brand-glyph {
+  transition: transform 240ms var(--ease-enter);
+}
+.sidebar .brand-glyph svg {
+  transform-box: view-box;
+  transform-origin: center;
+}
+@media (hover: hover) {
+  .sidebar :is(.brand, .mobile-chat-link):hover .brand-glyph {
+    transform: scale(1.04);
+  }
+  .sidebar :is(.brand, .mobile-chat-link):hover .brand-glyph svg {
+    animation: ob-brand-nod 1.8s ease-in-out infinite;
+  }
+  :is(.brand, .mobile-chat-link):hover .brand-glyph svg > circle:last-child {
+    animation: ob-brand-dot-hop 600ms var(--ease-enter);
+  }
+}
+.sidebar :is(.brand, .mobile-chat-link):focus-visible .brand-glyph svg {
+  animation: ob-brand-nod 1.8s ease-in-out infinite;
+}
+:is(.brand, .mobile-chat-link):focus-visible .brand-glyph svg > circle:last-child {
+  animation: ob-brand-dot-hop 600ms var(--ease-enter);
+}
+.sidebar :is(.brand, .mobile-chat-link):active .brand-glyph {
+  transform: scale(0.96);
+  transition-duration: 100ms;
+}
+.sidebar :is(.brand, .mobile-chat-link):active .brand-glyph svg {
+  animation: none;
+}
+@keyframes ob-brand-nod {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  28% {
+    transform: translateY(2px) rotate(-7deg) scale(1.03, 0.94);
+  }
+  55% {
+    transform: rotate(4deg) scale(0.98, 1.04);
+  }
+  78% {
+    transform: translateY(0) rotate(-1deg) scale(1);
+  }
+}
+@keyframes ob-brand-dot-hop {
+  30% {
+    transform: translate(1px, -1px) scale(1.2);
+  }
+  55% {
+    transform: translate(0.5px, 1px) scale(0.95, 1.05);
+  }
+  75% {
+    transform: translate(0.25px, -0.5px) scale(1.04);
+  }
+}
+.ob-glyph-bounce > circle,
+.ob-glyph-bounce > .ob-glyph-orbit {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+.ob-glyph-bounce > circle {
+  animation: ob-bounce-ring 1.5s 0.25s var(--ease-enter) infinite;
+}
+
+.ob-glyph-bounce > .ob-glyph-orbit {
+  animation: ob-bounce-dot 1.5s 0.4s var(--ease-enter) infinite;
+}
+
+@keyframes ob-bounce-ring {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  38% {
+    transform: translateY(6%) scaleY(0.93);
+  }
+  65% {
+    transform: translateY(-1%) scaleY(1);
+  }
+}
+
+@keyframes ob-bounce-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(8%);
+  }
+  67% {
+    transform: translateY(-2%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-glyph *,
+  .ob-glyph *::before,
+  .ob-glyph *::after,
+  .sidebar .brand-glyph,
+  .sidebar .brand-glyph * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

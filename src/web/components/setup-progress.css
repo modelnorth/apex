@@ -1,0 +1,115 @@
+.setup-progress {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(28px, 2fr) auto minmax(28px, 3fr) auto;
+  min-height: 100dvh;
+  padding: 28px;
+  background: var(--canvas);
+  color: var(--foreground);
+  text-align: center;
+  outline: none;
+}
+.setup-progress:focus {
+  outline: none;
+}
+:root[data-desktop='true'] .setup-progress {
+  min-height: calc(100dvh - var(--desktop-titlebar-height, 0px));
+}
+.setup-progress-content {
+  grid-row: 2;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 520px);
+  gap: 28px;
+}
+.setup-progress-mark {
+  display: block;
+  width: 112px;
+  height: 112px;
+  flex: none;
+  overflow: visible;
+}
+.setup-progress-message,
+.setup-progress-status {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.setup-progress-message h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.setup-progress-message p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.setup-progress-message .setup-progress-meta {
+  font-variant-numeric: tabular-nums;
+}
+.setup-progress-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.setup-progress-details {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.setup-progress-details summary {
+  cursor: pointer;
+}
+.setup-progress-details pre {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.setup-progress-download {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.setup-progress-footer {
+  grid-row: 4;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.setup-progress-note {
+  max-width: 340px;
+  margin: 0 auto;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+@media (max-width: 600px) {
+  .setup-progress-mark {
+    width: 96px;
+    height: 96px;
+  }
+  .setup-progress-message h1 {
+    font-size: 22px;
+  }
+}

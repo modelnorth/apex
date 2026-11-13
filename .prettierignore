@@ -1,0 +1,7 @@
+node_modules
+.local
+.env
+.env.*
+dist
+pnpm-lock.yaml
+src/server/trust-jev-model.json

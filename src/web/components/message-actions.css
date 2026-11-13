@@ -1,0 +1,225 @@
+.chat-page .message .message-row > .message-bubble {
+  --message-action-space: calc(3 * var(--chat-action-size) + 2 * var(--chat-action-gap) + 8px);
+  max-width: min(calc(100% - var(--message-action-space)), 640px);
+}
+
+.chat-page .message .message-bubble > .message-body {
+  padding: 10px 16px;
+}
+
+.chat-page .message .message-time {
+  position: absolute;
+  z-index: 1;
+  right: 8px;
+  bottom: 6px;
+  display: block;
+  margin: 0;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-sm);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 14px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms;
+}
+
+.chat-page .message-bubble:hover .message-time,
+.chat-page .message-bubble:focus-within .message-time,
+.chat-page .message-panel-open .message-time {
+  opacity: 1;
+}
+
+.chat-page .message-trigger.message-menu-trigger {
+  position: absolute;
+  z-index: 3;
+  right: 8px;
+  bottom: 6px;
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-page .message-menu-trigger:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chat-page .message-actions {
+  position: absolute;
+  z-index: 2;
+  bottom: 0;
+  left: 100%;
+  display: flex;
+  gap: var(--chat-action-gap);
+  padding-left: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms;
+}
+
+.chat-page .message-trigger {
+  display: grid;
+  place-items: center;
+  width: var(--chat-action-size);
+  height: var(--chat-action-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background 110ms,
+    color 110ms;
+}
+
+.chat-page .message-row:hover .message-actions,
+.chat-page .message-row:focus-within .message-actions,
+.chat-page .message-panel-open .message-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chat-page .message-user .message-actions {
+  left: auto;
+  right: 100%;
+  padding: 0 8px 0 0;
+}
+
+.chat-page .message-trigger:hover,
+.chat-page .message-trigger[aria-expanded='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chat-page .message-bubble.has-reaction {
+  margin-bottom: 20px;
+}
+
+.chat-page .message-bubble.has-reaction > .message-body {
+  min-width: 110px;
+}
+
+.chat-page .message .reaction-pin {
+  position: absolute;
+  right: 12px;
+  bottom: -20px;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  min-width: 32px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--foreground);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.chat-page button.reaction-pin {
+  cursor: pointer;
+}
+
+.chat-page button.reaction-pin:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.chat-page .reaction-pin.is-new {
+  animation: reaction-pin-in 180ms ease-out;
+}
+
+.chat-page .reaction-pin.is-leaving {
+  pointer-events: none;
+  animation: reaction-pin-out 180ms ease-in forwards;
+}
+
+.chat-page .message:focus-visible {
+  outline: none;
+}
+
+.chat-page .message:focus-visible .message-body,
+.chat-page .message-body:focus-visible,
+.chat-page .message-trigger:focus-visible,
+.chat-page .reaction-pin:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.chat-page .message-trigger:disabled {
+  cursor: default;
+}
+
+.chat-message-menu {
+  position: fixed;
+}
+
+@keyframes reaction-pin-in {
+  from {
+    opacity: 0;
+    scale: 0.7;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes reaction-pin-out {
+  to {
+    opacity: 0;
+    scale: 0.7;
+  }
+}
+
+@container (max-width: 600px) {
+  .chat-page .message {
+    --compact-message-actions: 1;
+  }
+  .chat-page .message .message-row > .message-bubble {
+    --message-action-space: 24px;
+    margin-bottom: 0;
+  }
+  .chat-page .message-actions {
+    display: none;
+  }
+  .chat-page .message .message-row > .message-bubble.has-reaction {
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 640px), (hover: none), (pointer: coarse) {
+  .chat-page .message {
+    --compact-message-actions: 1;
+  }
+  .chat-page .message .message-row > .message-bubble {
+    --message-action-space: 24px;
+    margin-bottom: 0;
+  }
+  .chat-page .message-actions {
+    display: none;
+  }
+  .chat-page .message .message-row > .message-bubble.has-reaction {
+    margin-bottom: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-page .message-time,
+  .chat-page .message-actions,
+  .chat-page .message-trigger,
+  .chat-page .reaction-pin {
+    animation: none;
+    transition: none;
+  }
+}

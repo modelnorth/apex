@@ -1,0 +1,116 @@
+.privacy-page {
+  min-height: 100dvh;
+  padding: 40px 48px 80px;
+}
+.privacy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.privacy-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--foreground);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.privacy-back {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.privacy-back:hover {
+  color: var(--foreground);
+}
+.privacy-document {
+  width: 100%;
+  max-width: 680px;
+  margin: 80px auto 0;
+}
+.privacy-document > h1 {
+  margin-bottom: 32px;
+  font-size: var(--text-title);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.privacy-content,
+.privacy-empty {
+  color: var(--muted-foreground);
+  font-size: var(--text-body);
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.privacy-content h2,
+.privacy-content h3,
+.privacy-content h4 {
+  color: var(--foreground);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.privacy-content h2 {
+  margin: 32px 0 12px;
+  font-size: 24px;
+  letter-spacing: -0.4px;
+}
+.privacy-content h3,
+.privacy-content h4 {
+  margin: 24px 0 8px;
+  font-size: 16px;
+}
+.privacy-content p + p {
+  margin-top: 12px;
+}
+.privacy-content ul,
+.privacy-content ol {
+  margin: 12px 0;
+  padding-left: 24px;
+  list-style-position: outside;
+}
+.privacy-content ul {
+  list-style-type: disc;
+}
+.privacy-content ol {
+  list-style-type: decimal;
+}
+.privacy-content li + li {
+  margin-top: 4px;
+}
+.privacy-content a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.privacy-content blockquote {
+  margin: 16px 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+}
+.privacy-unavailable {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .privacy-page {
+    padding: 24px 24px 48px;
+  }
+  .privacy-header {
+    gap: 16px;
+  }
+  .privacy-header .privacy-brand {
+    font-size: 24px;
+  }
+  .privacy-back {
+    font-size: var(--text-control);
+    text-align: right;
+  }
+  .privacy-document {
+    margin-top: 48px;
+  }
+  .privacy-document > h1 {
+    margin-bottom: 24px;
+    font-size: var(--text-title);
+  }
+}

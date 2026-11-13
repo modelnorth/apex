@@ -1,0 +1,96 @@
+{
+  "lima": {
+    "url": "https://github.com/lima-vm/lima/releases/download/v2.2.0/lima-2.2.0-Darwin-arm64.tar.gz",
+    "sha256": "bbdef91774885a0d05f7b048c4eb89ae2bcf3a0c252ae7ca7934e63df76d93c3"
+  },
+  "guestagents": {
+    "url": "https://github.com/lima-vm/lima/releases/download/v2.2.0/lima-additional-guestagents-2.2.0-Darwin-arm64.tar.gz",
+    "sha256": "3aff4453eb3c359eb4f3b458056db24f2c5c15019232531292f49e04050554ed"
+  },
+  "dockerHost": {
+    "url": "https://download.docker.com/mac/static/stable/aarch64/docker-28.5.1.tgz",
+    "sha256": "40f9c37f3d397fcaeb3ca68b6578d86698349c7475cebff30c843f056c2c22eb"
+  },
+  "dockerGuest": {
+    "url": "https://download.docker.com/linux/static/stable/aarch64/docker-28.5.1.tgz",
+    "sha256": "de54e37157f45a43f42f6271302372d95c0eb992cc35ecaee74989bb14058c94"
+  },
+  "guest": {
+    "url": "https://cloud-images.ubuntu.com/minimal/releases/resolute/release-20261017/ubuntu-26.04-minimal-cloudimg-arm64.img",
+    "sha256": "330e91ac203e1d1baac821f493ee6da3e85b5f2c5c3d659c8541b58bb2c5435a"
+  },
+  "guestPackages": [
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/i/iptables/iptables_1.8.11-2ubuntu3_arm64.deb",
+      "sha256": "9bd09e64fe6ddb0a1c4b8a79becdc02ef17655c3cfd5cc750c0523a8e5044681"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/i/iptables/libip4tc2_1.8.11-2ubuntu3_arm64.deb",
+      "sha256": "59dce7c6db3edc1b60ef61730932470d9906e03249d837c0a18e6f75e9bb0912"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/i/iptables/libip6tc2_1.8.11-2ubuntu3_arm64.deb",
+      "sha256": "af9da146906c2685304e4fd14c74a026204a712284a81e310c439aa91a5a5b9d"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/libn/libnftnl/libnftnl11_1.3.1-1_arm64.deb",
+      "sha256": "e4a5df487f49cd366f1d9c25b540fe0a44edfc2d7d468bb827da7f683efa1618"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/libn/libnfnetlink/libnfnetlink0_1.0.2-3build1_arm64.deb",
+      "sha256": "2a10983ed6ecdb688ab95ed8e39424f68e4c291596b5841330a9d5e95295c492"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/libn/libnetfilter-conntrack/libnetfilter-conntrack3_1.1.1-1_arm64.deb",
+      "sha256": "8f911d2b9d3f303159f22283979804a83a733d9438cb99a108ab92500287257b"
+    }
+  ],
+  "x64": {
+    "lima": {
+      "url": "https://github.com/lima-vm/lima/releases/download/v2.2.0/lima-2.2.0-Darwin-x86_64.tar.gz",
+      "sha256": "0d6f99c19f6e4bc3c92730c4c29d929e6927f0cb0a0ba1a84383367135a8ff31"
+    },
+    "guestagents": {
+      "url": "https://github.com/lima-vm/lima/releases/download/v2.2.0/lima-additional-guestagents-2.2.0-Darwin-x86_64.tar.gz",
+      "sha256": "d710253c44c5b46116c08cabd784b0e75ea8e7c494d0f75dfa55ee6ea6c5720c"
+    },
+    "dockerHost": {
+      "url": "https://download.docker.com/mac/static/stable/x86_64/docker-28.5.1.tgz",
+      "sha256": "a3827a07da2f3a5b0229f85f54a7d025735cb7c05d457502d8b78dc6f1dc531d"
+    },
+    "dockerGuest": {
+      "url": "https://download.docker.com/linux/static/stable/x86_64/docker-28.5.1.tgz",
+      "sha256": "5c0d19f31fece1accd0358bb8cff591fe25d7b6cba19f0fd412cbfdc07f75ff6"
+    },
+    "guest": {
+      "url": "https://cloud-images.ubuntu.com/minimal/releases/resolute/release-20261017/ubuntu-26.04-minimal-cloudimg-amd64.img",
+      "sha256": "7bdaa53cf909472929f353e19efc9b7bbe30fb7acc05c033ce7b8d46dd62d38d"
+    },
+    "guestPackages": [
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/i/iptables/iptables_1.8.11-2ubuntu3_amd64.deb",
+        "sha256": "187b16f9375f53ce6a1618a29de52bb177b620589ada29e4a3e25de5d594e66f"
+      },
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/i/iptables/libip4tc2_1.8.11-2ubuntu3_amd64.deb",
+        "sha256": "be25148d60125f6866dfa7940f3f1371fff4b0e8a1a9500780ad50cb8aaa0895"
+      },
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/i/iptables/libip6tc2_1.8.11-2ubuntu3_amd64.deb",
+        "sha256": "3d9fdb3171f1167ab3f5182de11db63bcd27aae71838618f3d46806b3134428e"
+      },
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/libn/libnftnl/libnftnl11_1.3.1-1_amd64.deb",
+        "sha256": "a2f4d4a4ce3fac7e473c8de60a3d8948a58e9850cd8e2ced17263aa73dda7199"
+      },
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/libn/libnfnetlink/libnfnetlink0_1.0.2-3build1_amd64.deb",
+        "sha256": "e76b638fef2c1ebf78260972a52c4716df5752b29a952aeddc0c091a74f179c2"
+      },
+      {
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/libn/libnetfilter-conntrack/libnetfilter-conntrack3_1.1.1-1_amd64.deb",
+        "sha256": "facfd45a7cf6bab8ef30adbe693d6486f22e5253263f9d53b4e70b53f768970e"
+      }
+    ]
+  }
+}

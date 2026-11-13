@@ -1,0 +1,342 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Select checks for changed files
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.scope.outputs.core }}
+      desktop: ${{ steps.scope.outputs.desktop }}
+      windows: ${{ steps.scope.outputs.windows }}
+      n8n: ${{ steps.scope.outputs.n8n }}
+      evals: ${{ steps.scope.outputs.evals }}
+      images: ${{ steps.scope.outputs.images }}
+      network: ${{ steps.scope.outputs.network }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+      - name: Read the changed paths
+        id: scope
+        env:
+          CI_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: node .github/scripts/ci-scope.mjs
+
+  notes:
+    name: Delete Git notes
+    needs: scope
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Delete every notes ref on GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/notes/" --jq '.[].ref' |
+            while read -r ref; do
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/$ref"
+              echo "Deleted $ref"
+            done
+
+  checks:
+    name: Checks, tests and build
+    needs: [scope, macos-native]
+    if: ${{ always() }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: ${{ (needs.scope.outputs.core == 'true' || needs.scope.outputs.evals == 'true') && 'postgres:17-alpine' || '' }}
+        env:
+          POSTGRES_USER: nod
+          POSTGRES_PASSWORD: nod-ci
+          POSTGRES_DB: nod_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U nod -d nod_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI: 'true'
+      TEST_DATABASE_URL: postgresql://nod:nod-ci@127.0.0.1:5432/nod_ci
+    steps:
+      - name: Fail canceled checks
+        if: ${{ cancelled() }}
+        run: exit 1
+      - name: Require a valid change scope
+        env:
+          CI_SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_NATIVE_REQUIRED: ${{ needs.scope.outputs.desktop }}
+          CI_NATIVE_RESULT: ${{ needs.macos-native.result }}
+        run: |
+          test "$CI_SCOPE_RESULT" = success
+          if [ "$CI_NATIVE_REQUIRED" = true ]; then
+            test "$CI_NATIVE_RESULT" = success
+          fi
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Set up Node.js 24.21.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check the release version and source
+        if: >-
+          (github.event_name == 'pull_request' &&
+           github.head_ref == 'release/desktop' &&
+           github.event.pull_request.head.repo.full_name == github.repository) ||
+          github.ref == 'refs/heads/release/desktop'
+        run: node .github/scripts/prepare-desktop-release.mjs --check
+      - name: Install desktop build tooling without downloading Electron
+        if: needs.scope.outputs.desktop == 'true'
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm --dir desktop install --frozen-lockfile
+      - name: Check desktop lifecycle, storage and release contracts
+        if: needs.scope.outputs.desktop == 'true'
+        run: pnpm run desktop:test
+      - name: Check n8n delivery contracts
+        if: needs.scope.outputs.n8n == 'true'
+        run: node --test deployment/n8n/*.test.mjs
+      - name: Check desktop network isolation during restart
+        if: needs.scope.outputs.network == 'true'
+        run: >-
+          sudo env NOD_TEST_RUNTIME_NETWORK=1 "$(command -v node)"
+          --test --test-name-pattern='workload firewall refresh'
+          desktop/test/runtime-assets.test.mjs
+      - name: Check types, boundaries and formatting
+        if: needs.scope.outputs.core == 'true'
+        run: pnpm run check
+      - name: Check formatting without a full type check
+        if: needs.scope.outputs.core != 'true'
+        run: pnpm run format:check
+      - name: Build the client
+        if: needs.scope.outputs.images == 'true'
+        run: pnpm run build
+      - name: Check the capability eval harness
+        if: needs.scope.outputs.evals == 'true'
+        run: |
+          pnpm --dir evals run check
+          pnpm --dir evals test
+      - name: Set up the Docker layer cache
+        if: needs.scope.outputs.images == 'true'
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267
+        with:
+          cache-key: n8n-io/nod/ci
+      - name: Build the computer and integration images
+        if: needs.scope.outputs.images == 'true'
+        run: |
+          docker buildx build --load --platform linux/amd64 --file Dockerfile.browser --tag nod-ci-browser .
+          docker buildx build --load --platform linux/amd64 --file Dockerfile.workspace --tag nod-ci-workspace .
+          docker buildx build --load --platform linux/amd64 --file scripts/Dockerfile.integration --tag nod-ci-integration .
+          docker buildx build --load --platform linux/amd64 --file deployment/self-host/Dockerfile --tag nod-server:ci .
+          docker tag nod-ci-browser nod-browser:ci
+          docker tag nod-ci-workspace nod-workspace:ci
+      - name: Check workspace egress in source and self-host deployments
+        if: needs.scope.outputs.images == 'true'
+        env:
+          NOD_TEST_WORKSPACE_IMAGE: nod-ci-workspace
+        run: pnpm exec tsx --test --test-name-pattern='workspace egress' tests/sandbox.test.ts
+      - name: Verify the single-user server deployment and token rotation
+        if: needs.scope.outputs.images == 'true'
+        env:
+          NOD_IMAGE_TAG: ci
+        run: node deployment/self-host/check.mjs
+      - name: Verify the shared local and desktop browser image
+        if: needs.scope.outputs.images == 'true'
+        run: node --import tsx desktop/scripts/check-browser-image.mjs nod-ci-browser
+      - name: Verify automatic RTK savings and unfiltered exports
+        if: needs.scope.outputs.images == 'true'
+        run: node --import tsx scripts/eval-rtk.ts --smoke --image nod-ci-workspace
+      - name: Run all integration tests with PostgreSQL and Chromium
+        if: needs.scope.outputs.core == 'true'
+        run: >-
+          docker run --rm --network host --shm-size=1g
+          --env TEST_DATABASE_URL
+          --env NOD_TEST_NATIVE_DOWNLOAD=true
+          --env NOD_TEST_BROWSER_EXECUTABLE=/usr/bin/chromium
+          --volume "$PWD/src:/app/src:ro"
+          --volume "$PWD/tests:/app/tests:ro"
+          --volume "$PWD/scripts:/app/scripts:ro"
+          --volume "$PWD/public:/app/public:ro"
+          --volume "$PWD/desktop/main:/app/desktop/main:ro"
+          --volume "$PWD/desktop/preload:/app/desktop/preload:ro"
+          --volume "$PWD/desktop/ui:/app/desktop/ui:ro"
+          --volume "$PWD/deployment/self-host:/app/deployment/self-host:ro"
+          --volume "$PWD/tsconfig.json:/app/tsconfig.json:ro"
+          --volume "$PWD/dist/web:/app/dist/web:ro"
+          --tmpfs /app/.local:uid=1000,gid=1000
+          --init --entrypoint node nod-ci-integration
+          scripts/test-integration.mjs --run
+
+  macos-native:
+    name: macOS native identity and updates (${{ matrix.arch }})
+    needs: scope
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.scope.outputs.desktop == 'true') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Set up Node.js 24.21.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Electron and desktop tooling
+        run: pnpm --dir desktop install --frozen-lockfile
+      - name: Verify native updates and identity preservation
+        run: node desktop/scripts/check-native-updates.mjs
+      - name: Preserve native acceptance report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-native-acceptance-${{ matrix.arch }}
+          path: .local/native-update-acceptance/*.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  windows-setup:
+    name: Windows setup and installer
+    needs: scope
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.scope.outputs.windows == 'true') }}
+    runs-on: windows-2025
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Set up Node.js 24.21.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Electron and desktop tooling
+        run: pnpm --dir desktop install --frozen-lockfile
+      - name: Download the Electron binary before the tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node desktop/scripts/prepare-windows-electron.mjs
+      - name: Install NSIS for native update acceptance
+        if: github.event_name == 'workflow_dispatch'
+        run: choco install nsis --yes --no-progress
+      - name: Check Windows credential storage across Electron restarts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .local/windows-setup | Out-Null
+          node --test --test-name-pattern="Windows DPAPI" `
+            --test-reporter=spec --test-reporter-destination=stdout `
+            --test-reporter=junit --test-reporter-destination=.local/windows-setup/desktop.xml `
+            desktop/test/settings.test.mjs
+      - name: Check local file rules on Windows
+        run: pnpm exec tsx --test --test-name-pattern="local file rules" tests/sandbox.test.ts
+      - name: Execute the PowerShell installer fixtures
+        shell: pwsh
+        run: >-
+          node --test
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=.local/windows-setup/installer.xml
+          --test-name-pattern="CLI-INSTALL: (the Windows script|Windows refuses)"
+          deployment/n8n/install.test.mjs
+      - name: Verify native Windows updates and profile preservation
+        if: github.event_name == 'workflow_dispatch'
+        run: node desktop/scripts/check-windows-updates.mjs
+      - name: Preserve Windows test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-setup-reports
+          path: |
+            .local/windows-setup/*.xml
+            .local/windows-update-acceptance/*.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  secrets:
+    name: Secret scanning
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified Gitleaks 8.30.1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          cd "$RUNNER_TEMP/gitleaks"
+          gh release download v8.30.1 --repo gitleaks/gitleaks --pattern gitleaks_8.30.1_linux_x64.tar.gz --output gitleaks.tar.gz
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' 'gitleaks.tar.gz' | sha256sum --check --status
+          tar --extract --gzip --file gitleaks.tar.gz gitleaks
+      - name: Verify scanning exceptions still detect secrets
+        run: python3 .github/scripts/check-secret-config.py "$RUNNER_TEMP/gitleaks/gitleaks"
+      - name: Scan Git history
+        run: '"$RUNNER_TEMP/gitleaks/gitleaks" git --config .gitleaks.toml --redact --no-banner --verbose --log-opts=--all .'
+      - name: Scan the checked-out files
+        run: '"$RUNNER_TEMP/gitleaks/gitleaks" dir --config .gitleaks.toml --redact --no-banner --verbose .'
