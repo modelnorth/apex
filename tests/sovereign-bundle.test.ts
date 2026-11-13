@@ -36,16 +36,17 @@ test('createSovereignCapabilities executes full Instinct-killer workflow with OT
 
   const fetchMock: typeof fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const parsed = new URL(url);
     if (url.startsWith(otlpEndpoint)) {
       return fetch(input, init);
     }
-    if (url.includes('api.twilio.com')) {
+    if (parsed.hostname === 'api.twilio.com') {
       return new Response(
         JSON.stringify({ sid: 'CA_sovereign_1', status: 'queued', to: '+15550109999', from: '+15550100001' }),
         { status: 201, headers: { 'content-type': 'application/json' } },
       );
     }
-    if (url.includes('api.stripe.com/v1/payment_intents')) {
+    if (parsed.hostname === 'api.stripe.com' && parsed.pathname.startsWith('/v1/payment_intents')) {
       return new Response(
         JSON.stringify({ id: 'pi_sovereign_1', status: 'succeeded', amount: 4500, currency: 'usd', livemode: false }),
         { status: 200, headers: { 'content-type': 'application/json' } },

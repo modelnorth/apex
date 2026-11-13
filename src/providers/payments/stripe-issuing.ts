@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { CardEntry } from '../../ports/computer.ts';
 import type {
   IssueVirtualCardRequest,
@@ -22,7 +22,7 @@ export interface StripeIssuingConfig {
 export function generateLuhnCard(prefix = '424242'): string {
   let number = prefix;
   while (number.length < 15) {
-    number += Math.floor(Math.random() * 10).toString();
+    number += randomInt(0, 10).toString();
   }
   let sum = 0;
   for (let i = 0; i < 15; i++) {
@@ -83,7 +83,7 @@ export class StripeIssuingProvider implements VirtualCardPort {
     const now = new Date();
     const expiryMonth = (now.getMonth() + 1);
     const expiryYear = now.getFullYear() + 2;
-    const securityCode = Math.floor(100 + Math.random() * 900).toString();
+    const securityCode = randomInt(100, 1000).toString();
 
     const virtualCard: VirtualCard = {
       id: cardId,

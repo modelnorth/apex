@@ -60,7 +60,7 @@ const noTelegramLinks = { subscribe: () => () => {}, getSnapshot: () => null };
 export function useTelegramChatUrl(text: string) {
   const version = requestAccountVersion();
   if (telegramLinks?.version !== version) telegramLinks = createTelegramLinks(version);
-  const store = text.includes('https://t.me/') ? telegramLinks : noTelegramLinks;
+  const store = text.startsWith('https://t.me/') ? telegramLinks : noTelegramLinks;
   return useSyncExternalStore(store.subscribe, store.getSnapshot, noTelegramLinks.getSnapshot);
 }
 
