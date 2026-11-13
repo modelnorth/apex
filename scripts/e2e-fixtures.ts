@@ -1532,7 +1532,7 @@ export function createIntegrationFixture(
     },
     register(app: FastifyInstance) {
       app.addHook('onSend', async (_request, _reply, payload) => {
-        if (typeof payload !== 'string' || !payload.includes(prefix)) return payload;
+        if (typeof payload !== 'string') return payload;
         return payload.replaceAll(prefix, `${baseUrl}/e2e/connect/`);
       });
       app.get<{ Params: { id: string } }>('/e2e/connect/:id', async (request, reply) => {

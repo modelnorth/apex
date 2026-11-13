@@ -13,20 +13,27 @@ export function assistantNotificationPreview(message, secrets = []) {
   function plain(value) {
     const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
     const source = redactPreview(value, secrets).slice(0, 16_384);
-    const text = source
+    let clean = source
       .replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (match, entity) => {
         if (!entity.startsWith('#')) return entities[entity.toLowerCase()] || match;
         const code =
           entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
         return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '';
-      })
-      .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
-      .replace(/<(script|style)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
+      });
+    let previous;
+    do {
+      previous = clean;
+      clean = clean
+        .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
+        .replace(/<(script|style)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
+        .replace(/<[^>]*>/g, '');
+    } while (clean !== previous);
+    clean = clean.replace(/[<>]/g, '');
+    const text = clean
       .replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/g, '')
       .replace(/^\s*\[[^\]\n]+\]:[^\n]*$/gm, '')
       .replace(/!?\[([^\]\n]*)\]\([^\n)]*\)/g, '$1')
       .replace(/!?\[([^\]\n]+)\]\[[^\]\n]*\]/g, '$1')
-      .replace(/<[^>]*>/g, '')
       .replace(/\bhttps?:\/\/[^\s<>()]+/gi, (url) => {
         try {
           return new URL(url).hostname;

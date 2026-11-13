@@ -5977,7 +5977,7 @@ test(
       assert.equal(checks, 3);
       const diagnostic = await readFile(join(f.profileRoot, 'logs/startup.log'), 'utf8');
       assert.match(diagnostic, /Synthetic updater transport failure/);
-      assert.equal(diagnostic.includes('https://updates.example.invalid/private'), false);
+      assert.doesNotMatch(diagnostic, /https:\/\/updates\.example\.invalid\/private/);
     } finally {
       decision.resolve({ response: 1 });
       await Promise.allSettled([initial, duplicate, duringDialog]);

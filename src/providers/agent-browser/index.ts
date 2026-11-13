@@ -1253,6 +1253,8 @@ export function createAgentBrowserComputer(options: {
           if (
             !href.value.trim().startsWith('#') &&
             destination.protocol !== 'javascript:' &&
+            destination.protocol !== 'data:' &&
+            destination.protocol !== 'vbscript:' &&
             destination.href !== source.href
           )
             url = new URL(href.value, current).href;

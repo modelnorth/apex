@@ -742,13 +742,13 @@ const manifest: RunManifest = {
   provenance: {},
 };
 
-function fixtureThrough(proxy: string) {
+function fixtureThrough(proxy: string, ca?: Buffer) {
   return new Promise<string>((resolve, reject) => {
     const tunnel = httpRequest(proxy, { method: 'CONNECT', path: 'fixture.example.test:443' });
     tunnel.on('error', reject);
     tunnel.on('connect', (_response, socket) => {
       const secure = tlsConnect(
-        { socket, servername: 'fixture.example.test', rejectUnauthorized: false },
+        { socket, servername: 'fixture.example.test', ca },
         () =>
           secure.write('GET / HTTP/1.1\r\nHost: fixture.example.test\r\nConnection: close\r\n\r\n'),
       );
@@ -800,8 +800,9 @@ test('fixture browser profiles keep separate production network guards across a 
     assert.equal(await first.text(), 'first guard');
     assert.equal(await (await fetch(urls[1]!)).text(), 'second guard');
     assert.equal(await (await fetch(urls[0]!)).text(), 'first guard');
-    assert.equal(await fixtureThrough(urls[1]!), 'fixture for browser-1');
-    assert.equal(await fixtureThrough(urls[0]!), 'fixture for browser-0');
+    const cert = await readFile(join(directory, 'fixture.crt'));
+    assert.equal(await fixtureThrough(urls[1]!, cert), 'fixture for browser-1');
+    assert.equal(await fixtureThrough(urls[0]!, cert), 'fixture for browser-0');
   } finally {
     await proxy.close();
     for (const guard of guards) {

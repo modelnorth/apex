@@ -229,8 +229,8 @@ export default scenario({
           const shared = screenshotted(run, state.marks.firedAt, /^share_screenshot$/);
           return {
             pass:
-              shared.includes('automata.example.net/pricing') &&
-              shared.includes('flowkite.example.net/'),
+              shared.some((item) => item === 'automata.example.net/pricing') &&
+              shared.some((item) => item === 'flowkite.example.net/'),
             evidence: shared.join(', ') || 'no screenshot was shared with the user',
           };
         },

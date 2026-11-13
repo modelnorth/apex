@@ -104,7 +104,10 @@ try {
         message.params.exceptionDetails.exception?.description ??
           message.params.exceptionDetails.text,
       );
-    pending.get(message.id)?.(message);
+    if (typeof message.id === 'number' && pending.has(message.id)) {
+      const resolve = pending.get(message.id);
+      if (typeof resolve === 'function') resolve(message);
+    }
   };
   const send = async (method, params = {}) => {
     const current = ++id;

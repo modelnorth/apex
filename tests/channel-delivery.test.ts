@@ -1,7 +1,7 @@
 import type { Presentation } from '../src/shared/presentation.ts';
 import { choiceAnswerText, type AnswerChoices } from '../src/shared/answer-choices.ts';
 import assert from 'node:assert/strict';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -2288,7 +2288,7 @@ test(
           await outboxFixture(t);
         const channels = await create();
         const blocker = await pool.connect();
-        const lockId = (randomBytes(4).readUInt32BE(0) % 2147483646) + 1;
+        const lockId = randomInt(1, 2147483647);
         try {
           receive('111', 'transition', 'chat-transition');
           await channels.drain();

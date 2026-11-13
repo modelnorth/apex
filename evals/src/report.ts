@@ -362,7 +362,7 @@ export function markdown(runs: Loaded[]) {
     [rows[0], rows[0].map(() => '---'), ...rows.slice(1)]
       .map(
         (cells) =>
-          `| ${cells.map((cell) => cell.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')).join(' | ')} |`,
+          `| ${cells.map((cell) => cell.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')).join(' | ')} |`,
       )
       .join('\n');
   const marks = (run: Loaded, id: string) =>

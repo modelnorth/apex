@@ -59,9 +59,9 @@ code, findings = scan(analytics, analytics_path)
 if code != 0 or findings:
     raise SystemExit("The public PostHog ingestion token must pass secret scanning.")
 
-for secret in ["phx_" + candidate[:44], "phs_" + candidate[:44], "phc_" + candidate[:44], candidate]:
-    with_secret = {**json.loads(analytics), "api_key": secret}
-    code, findings = scan(json.dumps(with_secret), analytics_path)
+for synthetic_token in ["phx_" + candidate[:44], "phs_" + candidate[:44], "phc_" + candidate[:44], candidate]:
+    test_payload = {**json.loads(analytics), "api_key": synthetic_token}
+    code, findings = scan(json.dumps(test_payload), analytics_path)
     if code != 1 or not any(finding.get("RuleID") == "generic-api-key" for finding in findings):
         raise SystemExit("Other tokens beside the public token must fail secret scanning.")
 

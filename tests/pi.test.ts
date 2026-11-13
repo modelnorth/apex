@@ -1917,7 +1917,7 @@ test('decision routing uses the selected connection and never sends subscription
   const requests: Array<{ url: string; key: string | null }> = [];
   t.mock.method(globalThis, 'fetch', async (url: RequestInfo | URL, options?: RequestInit) => {
     requests.push({ url: String(url), key: new Headers(options?.headers).get('authorization') });
-    const openai = String(url).includes('api.openai.com');
+    const openai = new URL(String(url)).hostname === 'api.openai.com';
     return Response.json({
       answers: openai
         ? [{ type: 'choice', name: 'answer', choice: false }]
@@ -2046,7 +2046,7 @@ test('trust mode selects available Jev, Decider and OpenAI before the small LLM'
     });
     if (fail) return new Response('', { status: 503 });
     return Response.json({
-      answers: String(url).includes('api.openai.com')
+      answers: new URL(String(url)).hostname === 'api.openai.com'
         ? [{ type: 'choice', name: 'answer', choice: false }]
         : { answer: { type: 'choice', choice: 'false' } },
       usage: { input_tokens: 1 },

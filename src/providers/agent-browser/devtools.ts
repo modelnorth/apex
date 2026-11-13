@@ -30,6 +30,25 @@ type ControlQuery = {
   focused?: boolean;
 };
 
+const escapeUnsafeChars = (str: string): string => {
+  const map: Record<string, string> = {
+    '<': '\\u003C',
+    '>': '\\u003E',
+    '/': '\\u002F',
+    '\b': '\\b',
+    '\f': '\\f',
+    '\n': '\\n',
+    '\r': '\\r',
+    '\t': '\\t',
+    '\0': '\\0',
+    '\u2028': '\\u2028',
+    '\u2029': '\\u2029',
+  };
+  return str.replace(/[<>\b\f\n\r\t\0\u2028\u2029]/g, (char) => map[char] ?? char);
+};
+
+const jsLiteral = (value: unknown): string => escapeUnsafeChars(JSON.stringify(value));
+
 const active = `(() => { if (!document.hasFocus()) return null; let node = document.activeElement; for (;;) { const root = node && (node.shadowRoot ?? (globalThis.__nodRoots ?? []).find(root => root.host === node)); if (!root?.activeElement) break; node = root.activeElement; } return node && !['IFRAME', 'FRAME', 'BODY', 'HTML'].includes(node.tagName) ? node : null; })()`;
 const focusScript = `(() => { const node = ${active}; globalThis.__nodFocused = node; return node ? node.tagName : ''; })()`;
 const submitsScript = `function (enter) { const node = this.nodeType === 1 ? this : this.parentElement; const control = enter ? node : (node?.closest('button, input') ?? node?.closest('label')?.control); const form = control?.form; const button = ['submit', 'image'].includes(control?.type); if (!form || !(button || (enter && control.tagName === 'INPUT'))) return null; const own = (name) => Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, name).get.call(form); const submitter = button ? control : [...own('elements')].find((element) => ['submit', 'image'].includes(element.type)); const method = (submitter?.hasAttribute('formmethod') ? submitter.formMethod : own('method')) || 'get'; if (method === 'dialog') return null; return { method: method.toUpperCase(), to: submitter?.hasAttribute('formaction') ? submitter.formAction : own('action') }; }`;
@@ -70,7 +89,7 @@ const maskScript = (on: boolean, secrets: string[], allFields: boolean, snapshot
       const value = ${snapshot} ? 'hidden' : '0';
       if (node.style.getPropertyValue(property) !== value || node.style.getPropertyPriority(property) !== 'important') node.style.setProperty(property, value, 'important');
     };
-    const secrets = ${JSON.stringify(secrets)};
+    const secrets = ${jsLiteral(secrets)};
     const scan = ${allFields} || secrets.length;
     let roots = [];
     const apply = () => {
@@ -197,8 +216,14 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
       pending.delete(message.id!);
       if (message.error) waiter.reject(new Error(message.error.message ?? 'Inspector error.'));
       else waiter.resolve(message.result ?? {});
-    } else if (message.method === 'Runtime.bindingCalled' && message.params?.name) {
-      bindings.get(message.params.name)?.(message.params.payload ?? '');
+    } else if (
+      message.method === 'Runtime.bindingCalled' &&
+      typeof message.params?.name === 'string'
+    ) {
+      if (bindings.has(message.params.name)) {
+        const handler = bindings.get(message.params.name);
+        if (typeof handler === 'function') handler(message.params.payload ?? '');
+      }
     } else if (
       message.method === 'Target.attachedToTarget' &&
       message.params?.targetInfo?.type === 'iframe' &&
@@ -499,7 +524,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
           'Runtime.evaluate',
           {
             contextId: await world(session, frame.id),
-            expression: `(() => { const nodes = document.querySelectorAll(${JSON.stringify(selector)}); if (nodes.length > 1) throw new Error('Ambiguous sign-in control'); return nodes[0] ?? null; })()`,
+            expression: `(() => { const nodes = document.querySelectorAll(${jsLiteral(selector)}); if (nodes.length > 1) throw new Error('Ambiguous sign-in control'); return nodes[0] ?? null; })()`,
             objectGroup: 'nod-sign-in',
           },
           session,
@@ -796,7 +821,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
         (await evaluate(
           field.session,
           field.context,
-          `(() => { const node = ${active}; if (!node || node !== globalThis.__nodField || node.tagName === 'SELECT') return false; for (const character of ${JSON.stringify(text)}) if (!node.isConnected || ${active} !== node || !document.execCommand('insertText', false, character)) return false; return true; })()`,
+          `(() => { const node = ${active}; if (!node || node !== globalThis.__nodField || node.tagName === 'SELECT') return false; for (const character of ${jsLiteral(text)}) if (!node.isConnected || ${active} !== node || !document.execCommand('insertText', false, character)) return false; return true; })()`,
         )) === true
       );
     },
@@ -805,7 +830,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
         (await evaluate(
           field.session,
           field.context,
-          `(() => { const active = ${active}; const nodes = ${selector.startsWith('@') ? '[active]' : `Array.from(document.querySelectorAll(${JSON.stringify(selector)}))`}; if (!active || active !== globalThis.__nodFocused || !nodes.includes(active) || !nodes.length || nodes.length > ${value.length}) return false; const values = nodes.length === 1 ? [${JSON.stringify(value)}] : Array.from(${JSON.stringify(value)}); if (nodes.length !== values.length) return false; for (let index = 0; index < nodes.length; index++) { const node = nodes[index]; (globalThis.__nodPrivateFields ??= new Set()).add(node); node.setAttribute('autocomplete', 'off'); node.focus(); if (${active} !== node) return false; if (typeof node.select === 'function') node.select(); else document.execCommand('selectAll'); document.execCommand('delete'); for (const character of values[index]) { if (${active} !== node || !document.execCommand('insertText', false, character)) return false; } } return true; })()`,
+          `(() => { const active = ${active}; const nodes = ${selector.startsWith('@') ? '[active]' : `Array.from(document.querySelectorAll(${jsLiteral(selector)}))`}; if (!active || active !== globalThis.__nodFocused || !nodes.includes(active) || !nodes.length || nodes.length > ${value.length}) return false; const values = nodes.length === 1 ? [${jsLiteral(value)}] : Array.from(${jsLiteral(value)}); if (nodes.length !== values.length) return false; for (let index = 0; index < nodes.length; index++) { const node = nodes[index]; (globalThis.__nodPrivateFields ??= new Set()).add(node); node.setAttribute('autocomplete', 'off'); node.focus(); if (${active} !== node) return false; if (typeof node.select === 'function') node.select(); else document.execCommand('selectAll'); document.execCommand('delete'); for (const character of values[index]) { if (${active} !== node || !document.execCommand('insertText', false, character)) return false; } } return true; })()`,
         )) === true
       );
     },
@@ -814,7 +839,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
         (await evaluate(
           field.session,
           field.context,
-          `(() => { const node = ${active}; const choices = ${JSON.stringify(choices)}; if (!node || node !== globalThis.__nodField || node.tagName !== 'SELECT') return false; const options = [...node.options]; const option = options.find((item) => choices.includes(item.value) || choices.includes(item.text.trim())) ?? options.find((item) => choices.some(choice => choice.toLocaleLowerCase() === item.value.toLocaleLowerCase() || choice.toLocaleLowerCase() === item.text.trim().toLocaleLowerCase())); if (!option) return false; node.value = option.value; node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,
+          `(() => { const node = ${active}; const choices = ${jsLiteral(choices)}; if (!node || node !== globalThis.__nodField || node.tagName !== 'SELECT') return false; const options = [...node.options]; const option = options.find((item) => choices.includes(item.value) || choices.includes(item.text.trim())) ?? options.find((item) => choices.some(choice => choice.toLocaleLowerCase() === item.value.toLocaleLowerCase() || choice.toLocaleLowerCase() === item.text.trim().toLocaleLowerCase())); if (!option) return false; node.value = option.value; node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,
         )) === true
       );
     },
@@ -852,7 +877,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
           'Runtime.callFunctionOn',
           {
             objectId,
-            functionDeclaration: `function () { return (this.nodeType === 1 ? this : this.parentElement)?.closest(${JSON.stringify(signInControlSelector)}); }`,
+            functionDeclaration: `function () { return (this.nodeType === 1 ? this : this.parentElement)?.closest(${jsLiteral(signInControlSelector)}); }`,
             objectGroup: 'nod-sign-in',
           },
           found.session,
@@ -1036,7 +1061,7 @@ export async function openDevtools(url: string, targetId: string, signal?: Abort
             'Runtime.evaluate',
             {
               contextId: context,
-              expression: `(() => { const name = ${JSON.stringify(name)}; const guard = globalThis[name + 'Guard']; for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) window.removeEventListener(type, guard, true); delete globalThis[name + 'Guard']; })()`,
+              expression: `(() => { const name = ${jsLiteral(name)}; const guard = globalThis[name + 'Guard']; for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) window.removeEventListener(type, guard, true); delete globalThis[name + 'Guard']; })()`,
             },
             session,
             true,

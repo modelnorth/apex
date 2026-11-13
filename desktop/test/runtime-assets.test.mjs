@@ -767,11 +767,8 @@ process.stdout.write(JSON.stringify(await walk(process.argv[1])));`;
     '/bin/sh',
     [
       '-c',
-      'ulimit -n 256\nexec "$@"',
+      'ulimit -n 256\nexec node --input-type=module -e "$1" "$2"',
       'nod-signing-discovery',
-      process.execPath,
-      '--input-type=module',
-      '-e',
       script,
       application,
     ],

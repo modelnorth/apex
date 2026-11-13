@@ -1515,7 +1515,14 @@ test('hosted connection proof signs only the opened broker popup challenge for i
         assert.ok(predicate(), 'The browser protocol did not reach the expected step.');
       };
       (dom.window.document.getElementById('connect') as HTMLButtonElement).click();
-      await until(() => browserKey !== undefined && popup.location.href.startsWith(brokerOrigin));
+      await until(() => {
+        if (browserKey === undefined || !popup.location.href) return false;
+        try {
+          return new URL(popup.location.href).origin === new URL(brokerOrigin).origin;
+        } catch {
+          return false;
+        }
+      });
       const challenge = [
         'nod-proxy-connect-v2',
         id,
@@ -5145,7 +5152,7 @@ test(
     assert.equal(result.status, 'waiting_user');
     assert.equal(f.callbacks.length, 2);
     assert.deepEqual(replies, []);
-    assert.ok(result.message?.includes('https://consent.example.com/connect'));
+    assert.match(result.message ?? '', /https:\/\/consent\.example\.com\/connect/);
     const pending = (
       await f.pool.query('SELECT * FROM app_connections WHERE owner_id=$1 AND turn_id=$2', [
         'local-development',

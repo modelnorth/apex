@@ -34,6 +34,23 @@ import { runProcess } from '../src/providers/process.ts';
 
 const render = (text: string) => renderToStaticMarkup(createElement(MessageText, { text }));
 
+const escapeUnsafeChars = (str: string): string => {
+  const map: Record<string, string> = {
+    '<': '\\u003C',
+    '>': '\\u003E',
+    '/': '\\u002F',
+    '\b': '\\b',
+    '\f': '\\f',
+    '\n': '\\n',
+    '\r': '\\r',
+    '\t': '\\t',
+    '\0': '\\0',
+    '\u2028': '\\u2028',
+    '\u2029': '\\u2029',
+  };
+  return str.replace(/[<>\b\f\n\r\t\0\u2028\u2029]/g, (char) => map[char] ?? char);
+};
+
 test(
   'HTML previews run local scripts but block navigation before any request leaves the frame',
   { skip: !process.env.NOD_TEST_BROWSER_EXECUTABLE, timeout: 30_000 },
@@ -48,7 +65,7 @@ test(
     const address = collector.address();
     assert.ok(address && typeof address !== 'string');
     const destination = `http://127.0.0.1:${address.port}/collect?data=synthetic-marker`;
-    const target = JSON.stringify(destination);
+    const target = escapeUnsafeChars(JSON.stringify(destination));
     const navigations = [
       `location.href=${target}`,
       `location.replace(${target})`,
