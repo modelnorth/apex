@@ -1,38 +1,87 @@
-# Contributing to Nod
+# Contributing to Apex
 
-Thanks for helping improve Nod. The full guide is in the docs: [Contribute to Nod](docs/src/content/docs/contribute/index.mdx). This page has the essentials.
+Thank you for your interest in contributing to **Apex**, the open-source, self-hosted personal AI operating system curated and maintained by **ModelNorth** (`@modelnorth`).
 
-Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+Everyone participating in this project is expected to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Ways to help
+---
 
-- **Report a bug** with the [bug report form](https://github.com/n8n-io/nod/issues/new/choose).
-- **Ask a question or share an idea** in [Discussions](https://github.com/n8n-io/nod/discussions).
-- **Report a vulnerability** privately, as described in the [security policy](SECURITY.md). Never in a public issue.
-- **Send a pull request.** For anything larger than a small fix, open an issue or discussion first.
+## 🏛️ Core Principles & Invariants
 
-## Set up and check
+Apex is designed to be the sovereign alternative to centralized, cloud-hosted AI agents (Instinct AI, Claude Duet, OpenAI Dots). When contributing, keep these four architectural invariants intact:
 
-Follow [Install from source](docs/src/content/docs/get-started/install-from-source.mdx), then run Nod with automatic reload:
+1. **Local-First & Data Isolation**:
+   - Secrets, memory, and personal tokens stay on the user's host or private server.
+   - External tools must never receive unscrubbed credentials or private telemetry.
+2. **Untrusted Data Boundaries**:
+   - All external web content, inbound SMS texts, phone transcripts, and emails must be safely quarantined inside `<untrusted_tool_result>` blocks.
+   - Closing tags (`</untrusted_tool_result>`) must be sanitized using regex neutralization to prevent indirect prompt injection.
+3. **Hexagonal Architecture**:
+   - **Ports (`src/ports/*`)**: Pure TypeScript contracts and domain models. Zero `process.env` reads or vendor SDK imports.
+   - **Providers (`src/providers/*`)**: Adapters implementing the port contracts.
+   - **Runtime (`src/runtime/*`)**: Orchestrates tools and context.
+   - **Server Composition (`src/server/composition.ts`)**: The sole composition root where environment variables are injected.
+4. **Deterministic Security Controls**:
+   - Virtual card minting and browser checkouts must pass through `PaymentPolicyGuard`.
+   - OS automation via GhostDesk OS must uphold execution sandboxing and reject administrative shells (`cmd.exe`, `powershell.exe`, `pwsh`, `bash`).
 
-```sh
-pnpm run dev
+---
+
+## 🛠️ Local Development Setup
+
+### 1. Prerequisites
+- **Node.js**: `v22.0.0` or later (`node -v`)
+- **pnpm**: `v9.0.0` or later (`corepack enable && corepack prepare pnpm@latest --activate`)
+- **Git**
+
+### 2. Install & Start Development Server
+```bash
+git clone https://github.com/modelnorth/apex.git
+cd apex
+pnpm install
+cp .env.example .env
+pnpm dev
 ```
 
-Use your own model key and accounts. Run checks that match the files and behavior you change. Documentation and media changes need formatting, link, and visual checks, without application tests or builds. Build the docs site when its pages, configuration, or code change.
+---
 
-For application changes, start with focused tests. Run broader checks only when needed to verify the affected behavior. See [Checks and tests](docs/src/content/docs/contribute/checks-and-tests.md).
+## 🧪 Testing & Verification Checks
 
-## Pull requests
+Before submitting a Pull Request, run the automated verification pipeline:
 
-- Use a [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) title, such as `fix(backend): handle a missing session`.
-- Keep each pull request to one change, fill in the template, and explain why and how you tested it.
-- Call out changes to approvals, the trust check, Vault, sign-in, the sandbox or owner isolation.
-- Keep keys, credentials and private content out of code, tests, logs and screenshots.
-- Update the docs in [`docs/`](docs/README.md) when setup or behaviour changes.
+```bash
+# 1. Verify Hexagonal Architecture Boundaries
+node scripts/check-architecture.mjs
 
-A maintainer reviews every change. See [Pull requests](docs/src/content/docs/contribute/pull-requests.md) for review, merge and release details.
+# 2. Strict TypeScript Compilation Check
+pnpm exec tsc --noEmit
 
-## License
+# 3. Execute Sovereign Capability & Integration Tests
+pnpm exec tsx --test tests/sovereign-bundle.test.ts tests/agent-desktop.test.ts tests/inbound-phone-sms.test.ts tests/virtual-card-issuing.test.ts
+```
 
-Nod is licensed under the [Apache License 2.0](LICENSE). Contributions you submit are licensed under the same terms, as section 5 of the license describes.
+All checks must exit with code `0`.
+
+---
+
+## 📬 Pull Request Guidelines
+
+1. **Title Format**: Follow [Conventional Commits](https://www.conventionalcommits.org/):
+   - `feat(ghostdesk): support multi-monitor window focus`
+   - `fix(telephony): sanitize inbound webhook phone headers`
+   - `docs(readme): add docker deployment walkthrough`
+2. **Blast Radius Minimization**: Keep pull requests focused on a single logical change. Avoid combining massive dependency updates with architectural refactors.
+3. **Security First**: Never check in API keys, live Stripe credentials, or personal phone numbers.
+4. **Docs & Tests**: Include corresponding unit tests in `tests/*.test.ts` and update documentation in `docs/` when introducing new ports or runtime capabilities.
+
+---
+
+## 🔒 Reporting Security Vulnerabilities
+
+If you discover a security vulnerability or prompt injection bypass, please **do not** open a public GitHub issue. Refer to our [Security Policy](SECURITY.md) to report findings privately to the ModelNorth core team.
+
+---
+
+## ⚖️ License & Attribution
+
+Apex is released under the **[Apache License 2.0](LICENSE)**. All contributions submitted to ModelNorth for inclusion in Apex are automatically licensed under the same Apache 2.0 terms. See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) and [NOTICE](NOTICE) for third-party credits and upstream lineage.

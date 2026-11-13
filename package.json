@@ -17,6 +17,12 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "hono": "^4.13.18",
+      "@hono/node-server": "^2.1.8"
+    }
+  },
   "scripts": {
     "dev": "node scripts/start.mjs",
     "dev:server": "tsx watch src/server/index.ts",
