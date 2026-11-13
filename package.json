@@ -121,7 +121,7 @@
     "linkify-it": "6.1.0",
     "lucide-react": "^1.70.0",
     "mammoth": "1.13.0",
-    "posthog-js": "1.438.5",
+    "posthog-js": "1.447.7",
     "prettier": "3.9.10",
     "qrcode.react": "4.2.0",
     "react-dom": "^19.3.1",
