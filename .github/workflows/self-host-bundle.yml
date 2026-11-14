@@ -60,9 +60,9 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: blacksmith-16vcpu-ubuntu-2404
+            runner: ubuntu-latest
           - arch: arm64
-            runner: blacksmith-16vcpu-ubuntu-2404-arm
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -143,7 +143,7 @@ jobs:
     name: Prepare private server release
     needs: bundle
     if: github.event_name == 'workflow_dispatch' && inputs.draft_release && github.ref == 'refs/heads/main' && github.event.repository.private
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
     permissions:

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   scope:
     name: Select checks for changed files
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       core: ${{ steps.scope.outputs.core }}
@@ -63,7 +63,7 @@ jobs:
     name: Checks, tests and build
     needs: [scope, macos-native]
     if: ${{ always() }}
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
       postgres:
@@ -151,11 +151,9 @@ jobs:
         run: |
           pnpm --dir evals run check
           pnpm --dir evals test
-      - name: Set up the Docker layer cache
+      - name: Set up Docker Buildx
         if: needs.scope.outputs.images == 'true'
-        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267
-        with:
-          cache-key: n8n-io/nod/ci
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - name: Build the computer and integration images
         if: needs.scope.outputs.images == 'true'
         run: |
@@ -212,8 +210,6 @@ jobs:
         include:
           - os: macos-15
             arch: arm64
-          - os: macos-15-intel
-            arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     env:
@@ -252,7 +248,7 @@ jobs:
     name: Windows setup and installer
     needs: scope
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.scope.outputs.windows == 'true') }}
-    runs-on: windows-2025
+    runs-on: windows-latest
     timeout-minutes: 35
     env:
       CI: 'true'
@@ -316,7 +312,7 @@ jobs:
 
   secrets:
     name: Secret scanning
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out complete history

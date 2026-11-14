@@ -30,7 +30,7 @@ concurrency:
 jobs:
   build:
     name: Build the site and check links
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out source with history for page dates
@@ -68,8 +68,8 @@ jobs:
   deploy:
     name: Deploy to nod.n8n.io
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.CLOUDFLARE_API_TOKEN != ''
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     environment:
       name: nod-n8n

@@ -21,7 +21,7 @@ jobs:
       contents: write
       actions: read
     if: github.ref == 'refs/heads/main'
-    runs-on: blacksmith-16vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
       name: release
