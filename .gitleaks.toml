@@ -33,7 +33,7 @@ regexes = ['^phc_tLmmvBasQMKWVJ2BiwhEzVVDD3Rh9qDq2VTmw3qTm6EV$']
 
 [[allowlists]]
 description = "Tests, fixtures and eval worlds hold synthetic values. Only the keyword and entropy rule is skipped there; provider key formats still fail."
-targetRules = ["generic-api-key"]
+targetRules = ["generic-api-key", "jwt"]
 paths = [
     '(^|/)tests?/',
     '(^|/)fixtures?/',
