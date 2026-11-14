@@ -68,7 +68,7 @@ jobs:
   deploy:
     name: Deploy to nod.n8n.io
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.CLOUDFLARE_API_TOKEN != ''
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment:
@@ -85,6 +85,7 @@ jobs:
           name: nod-site
           path: site
       - name: Deploy to the nod-n8n Cloudflare Pages project
+        if: env.CLOUDFLARE_API_TOKEN != ''
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
