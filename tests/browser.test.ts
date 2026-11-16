@@ -6132,6 +6132,36 @@ test('a checked browser step is described from its snapshot and runs only on tha
   }
 });
 
+test('batch browser action executes child commands in sequence without intermediate snapshots', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nod-batch-action-'));
+  const fixture = stagedLoginBrowser();
+  const commands: Array<Record<string, unknown>> = [];
+  const computer = createBrowserFixture({
+    dataRoot: directory,
+    run: fixture.run,
+    onDaemonCommand: (command) => commands.push(command),
+  });
+  try {
+    await computer.act('batch-test', { action: 'open', url: 'https://1.1.1.1/login' });
+    commands.length = 0;
+    const observation = await computer.act('batch-test', {
+      action: 'batch',
+      actions: [
+        { action: 'fill', selector: '#account', text: 'alice' },
+        { action: 'press', key: 'Tab' },
+      ],
+    });
+    assert.match(observation.url, /login/);
+    const actions = commands.map((c) => c.action);
+    assert.ok(actions.includes('fill'));
+    assert.ok(actions.includes('press'));
+    assert.equal(actions.filter((a) => a === 'snapshot').length, 1);
+  } finally {
+    await computer.dispose();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test(
   'a checked step reports the form it would send without sending it',
   { timeout: 60_000 },

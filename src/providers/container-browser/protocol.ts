@@ -1,5 +1,6 @@
 import { browserErrorCodes } from '../../shared/browser-errors.ts';
 import { z } from 'zod';
+import type { BrowserAction } from '../../ports/computer.ts';
 import { browserHandoffInput } from '../../shared/browser-handoff.ts';
 import { fileBytes } from '../../shared/files.ts';
 
@@ -38,58 +39,62 @@ const browserDownloadInput = z
   })
   .strict()
   .refine((input) => !(input.selector && input.url));
-const browserAction = z
-  .object({
-    action: z.enum([
-      'open',
-      'snapshot',
-      'click',
-      'fill',
-      'type',
-      'press',
-      'scroll',
-      'select',
-      'check',
-      'uncheck',
-      'hover',
-      'drag',
-      'back',
-      'forward',
-      'reload',
-      'tab_list',
-      'tab_switch',
-      'evaluate',
-      'wait',
-      'accept_dialog',
-      'dismiss_dialog',
-    ]),
-    url: z.string().optional(),
-    script: z.string().optional(),
-    tabId: z.string().min(1).max(200).optional(),
-    selector: selector.optional(),
-    targetSelector: selector.optional(),
-    x: z.number().min(0).max(1).optional(),
-    y: z.number().min(0).max(1).optional(),
-    points: z.array(point).min(2).optional(),
-    durationMs: z.number().int().min(0).optional(),
-    text: z.string().optional(),
-    key: z.string().optional(),
-    load: z.enum(['load', 'domcontentloaded', 'networkidle']).optional(),
-    direction: z.enum(['up', 'down']).optional(),
-    amount: z.number().int().min(1).optional(),
-    waitMs: z.number().int().min(0).optional(),
-    offset: z.number().int().min(0).optional(),
-    timeZone: z.string().max(100).optional(),
-    locale: z.string().max(35).optional(),
-    expectOrigin: z.string().min(1).max(2048).optional(),
-    expectUrl: z.string().min(1).max(8192).optional(),
-    expectTarget: z
-      .string()
-      .regex(/^[0-9a-f]{64}$/)
-      .optional(),
-    readOnly: z.boolean().optional(),
-  })
-  .strict();
+const browserAction: z.ZodType<BrowserAction> = z.lazy(() =>
+  z
+    .object({
+      action: z.enum([
+        'open',
+        'snapshot',
+        'click',
+        'fill',
+        'type',
+        'press',
+        'scroll',
+        'select',
+        'check',
+        'uncheck',
+        'hover',
+        'drag',
+        'back',
+        'forward',
+        'reload',
+        'tab_list',
+        'tab_switch',
+        'evaluate',
+        'wait',
+        'accept_dialog',
+        'dismiss_dialog',
+        'batch',
+      ]),
+      url: z.string().optional(),
+      script: z.string().optional(),
+      tabId: z.string().min(1).max(200).optional(),
+      selector: selector.optional(),
+      targetSelector: selector.optional(),
+      x: z.number().min(0).max(1).optional(),
+      y: z.number().min(0).max(1).optional(),
+      points: z.array(point).min(2).optional(),
+      durationMs: z.number().int().min(0).optional(),
+      text: z.string().optional(),
+      key: z.string().optional(),
+      load: z.enum(['load', 'domcontentloaded', 'networkidle']).optional(),
+      direction: z.enum(['up', 'down']).optional(),
+      amount: z.number().int().min(1).optional(),
+      waitMs: z.number().int().min(0).optional(),
+      offset: z.number().int().min(0).optional(),
+      timeZone: z.string().max(100).optional(),
+      locale: z.string().max(35).optional(),
+      expectOrigin: z.string().min(1).max(2048).optional(),
+      expectUrl: z.string().min(1).max(8192).optional(),
+      expectTarget: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+      readOnly: z.boolean().optional(),
+      actions: z.array(browserAction).optional(),
+    })
+    .strict(),
+);
 export const browserCredentialInput = z.object({
   threadId: thread,
   origin: z.string().max(2048),

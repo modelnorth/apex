@@ -304,6 +304,8 @@ function actionToCommand(action: BrowserAction): string[] {
       return ['dialog', 'accept'];
     case 'dismiss_dialog':
       return ['dialog', 'dismiss'];
+    case 'batch':
+      return ['snapshot'];
   }
 }
 
@@ -508,6 +510,22 @@ export function createBrowserbaseCliProvider(
       action: BrowserAction,
       options?: StealthSessionOptions,
     ): Promise<StealthExecutionResult> {
+      if (action.action === 'batch') {
+        if (!action.actions?.length) {
+          throw new BrowserActionError('browser_action_failed', 'batch requires actions array.');
+        }
+        let lastResult: StealthExecutionResult | undefined;
+        for (const sub of action.actions) {
+          const command = actionToCommand(sub);
+          lastResult = await runObservedAction(
+            sub.action,
+            command,
+            options,
+            sub.action === 'open' ? sub.url : undefined,
+          );
+        }
+        return lastResult!;
+      }
       const command = actionToCommand(action);
       return runObservedAction(
         action.action,

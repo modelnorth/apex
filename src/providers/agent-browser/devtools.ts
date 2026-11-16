@@ -57,7 +57,8 @@ const signInControlSelector =
 const signInSnapshot = `function () {
   if (!this.isConnected || this.ownerDocument !== document || !this.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true }) || this.matches(':disabled') || this.closest('[inert], [aria-disabled="true"], [aria-hidden="true"]')) return null;
   const rect = this.getBoundingClientRect();
-  if (!rect.width || !rect.height || this.outerHTML.length > 16384) return null;
+  const viewportHeight = window.innerHeight || 1080;
+  if (!rect.width || !rect.height || this.outerHTML.length > 16384 || rect.bottom < -2000 || rect.top > viewportHeight + 2000) return null;
   const references = ['aria-labelledby', 'aria-describedby'].map(name => (this.getAttribute(name) ?? '').split(/\\s+/).map(id => document.getElementById(id)?.textContent ?? ''));
   return JSON.stringify({ origin: location.origin, url: location.href, html: this.outerHTML, href: this instanceof HTMLAnchorElement ? this.href : null, references, submits: (${submitsScript}).call(this, false) });
 }`;

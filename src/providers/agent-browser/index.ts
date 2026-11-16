@@ -94,6 +94,68 @@ const holdMs = 30 * 60_000;
 const snapshotChars = 40_000;
 
 const withoutPasskeys = `(() => {
+  try {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined,
+      configurable: true,
+    });
+  } catch {}
+  try {
+    if (!navigator.plugins || navigator.plugins.length === 0) {
+      const pluginData = [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      ];
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => pluginData,
+        configurable: true,
+      });
+    }
+  } catch {}
+  try {
+    if (!window.chrome) {
+      window.chrome = {
+        app: { isInstalled: false, InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }, RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' } },
+        runtime: { OnInstalledReason: {}, OnRestartRequiredReason: {}, PlatformArch: {}, PlatformNaclArch: {}, PlatformOs: {}, RequestUpdateCheckStatus: {} },
+        loadTimes: () => ({}),
+        csi: () => ({}),
+      };
+    }
+  } catch {}
+  try {
+    if (!navigator.languages || !navigator.languages.length) {
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en'],
+        configurable: true,
+      });
+    }
+  } catch {}
+  try {
+    const getParam = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function (parameter) {
+      if (parameter === 37445) return 'Google Inc. (NVIDIA)';
+      if (parameter === 37446) return 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      return getParam.call(this, parameter);
+    };
+    if (window.WebGL2RenderingContext) {
+      const getParam2 = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = function (parameter) {
+        if (parameter === 37445) return 'Google Inc. (NVIDIA)';
+        if (parameter === 37446) return 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        return getParam2.call(this, parameter);
+      };
+    }
+  } catch {}
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      const origQuery = navigator.permissions.query;
+      navigator.permissions.query = (parameters) =>
+        parameters && parameters.name === 'notifications'
+          ? Promise.resolve({ state: typeof Notification !== 'undefined' ? Notification.permission : 'default' })
+          : origQuery.call(navigator.permissions, parameters);
+    }
+  } catch {}
   const container = window.CredentialsContainer && CredentialsContainer.prototype;
   if (!container) return;
   const unavailable = () =>
@@ -990,192 +1052,212 @@ export function createAgentBrowserComputer(options: {
         if (!state.started) throw new BrowserActionError('browser_not_open');
         if (input.action !== 'reload' && (await privateDocumentOpen(state, signal)))
           throw new BrowserActionError('browser_card_paused');
-        await onTarget(state, input, signal);
-        if (input.action === 'tab_list') {
-          const tabs = await browserTabs(state, signal);
-          return {
-            text: tabs
-              .map(
-                (tab) =>
-                  `${tab.active ? 'Active' : 'Open'} ${tab.tabId}: ${redactBrowserUrl(tab.url, state.secrets)}`,
-              )
-              .join('\n'),
-            url: redactBrowserUrl(await currentUrl(state, signal), state.secrets),
-          };
-        }
-        if (input.action === 'tab_switch') {
-          await command(state, { action: 'tab_switch', tabId: input.tabId }, { signal });
-        }
-        if (input.action === 'click') {
-          if (gesture) await movePointer(state, gesture, signal);
-          else
-            await command(
-              state,
-              { action: 'click', selector: selector(input.selector) },
-              { signal },
-            );
-        }
-        if (input.action === 'fill' || input.action === 'type') {
-          const target = selector(input.selector);
-          const text = input.text ?? '';
-          await command(
-            state,
-            input.action === 'fill'
-              ? { action: 'fill', selector: target, value: text }
-              : { action: 'type', selector: target, text },
-            { signal },
-          );
-        }
-        if (input.action === 'scroll')
-          await command(
-            state,
-            {
-              action: 'scroll',
-              direction: input.direction ?? 'down',
-              amount: input.amount ?? 600,
-              ...(input.selector ? { selector: selector(input.selector) } : {}),
-            },
-            { signal },
-          );
-        if (input.action === 'press') {
-          if (!input.key) throw new Error('Choose a key to press.');
-          await command(state, { action: 'press', key: input.key }, { signal });
-        }
-        if (input.action === 'accept_dialog' || input.action === 'dismiss_dialog') {
-          const text = input.action === 'accept_dialog' ? input.text : undefined;
-          await command(
-            state,
-            {
-              action: 'dialog',
-              response: input.action === 'accept_dialog' ? 'accept' : 'dismiss',
-              ...(text ? { promptText: text } : {}),
-            },
-            { signal },
-          );
-        }
-        if (input.action === 'wait') {
-          if (
-            [input.text, input.url, input.load].filter(Boolean).length !== 1 ||
-            (input.load && !['load', 'domcontentloaded', 'networkidle'].includes(input.load))
-          )
-            throw new Error('Wait for one of text, url or load.');
-          try {
-            await command(
-              state,
-              {
-                ...(input.text
-                  ? { action: 'wait', text: input.text }
-                  : input.url
-                    ? { action: 'waitforurl', url: input.url }
-                    : { action: 'waitforloadstate', state: input.load }),
-                ...(input.waitMs === undefined ? {} : { timeout: input.waitMs }),
-              },
-              { signal },
-            );
-          } catch (error) {
-            if (!(error instanceof DaemonCommandError)) throw error;
-            const observation = await observe(state, signal);
+        if (input.action !== 'batch') await onTarget(state, input, signal);
+        const executeSingle = async (act: BrowserAction) => {
+          const actGesture = visualGesture(act);
+          if (act.expectOrigin || act.expectUrl || act.expectTarget) {
+            await onTarget(state, act, signal);
+          }
+          if (act.action === 'tab_list') {
+            const tabs = await browserTabs(state, signal);
             return {
-              ...observation,
-              text: `The wait condition was not met.\n${observation.text}`,
+              text: tabs
+                .map(
+                  (tab) =>
+                    `${tab.active ? 'Active' : 'Open'} ${tab.tabId}: ${redactBrowserUrl(tab.url, state.secrets)}`,
+                )
+                .join('\n'),
+              url: redactBrowserUrl(await currentUrl(state, signal), state.secrets),
             };
           }
-        }
-        if (input.action === 'select') {
-          const value = input.text ?? '';
-          if (!value) throw new Error('Choose a visible option.');
-          await command(
-            state,
-            { action: 'select', selector: selector(input.selector), value },
-            { signal },
-          );
-        }
-        if (['check', 'uncheck', 'hover'].includes(input.action))
-          await command(
-            state,
-            { action: input.action, selector: selector(input.selector) },
-            { signal },
-          );
-        if (input.action === 'drag') {
-          if (gesture) await movePointer(state, gesture, signal);
-          else
+          if (act.action === 'tab_switch') {
+            await command(state, { action: 'tab_switch', tabId: act.tabId }, { signal });
+          }
+          if (act.action === 'click') {
+            if (actGesture) await movePointer(state, actGesture, signal);
+            else
+              await command(
+                state,
+                { action: 'click', selector: selector(act.selector) },
+                { signal },
+              );
+          }
+          if (act.action === 'fill' || act.action === 'type') {
+            const target = selector(act.selector);
+            const text = act.text ?? '';
+            await command(
+              state,
+              act.action === 'fill'
+                ? { action: 'fill', selector: target, value: text }
+                : { action: 'type', selector: target, text },
+              { signal },
+            );
+          }
+          if (act.action === 'scroll')
             await command(
               state,
               {
-                action: 'drag',
-                source: selector(input.selector),
-                target: selector(input.targetSelector),
+                action: 'scroll',
+                direction: act.direction ?? 'down',
+                amount: act.amount ?? 600,
+                ...(act.selector ? { selector: selector(act.selector) } : {}),
               },
               { signal },
             );
-        }
-        if (['back', 'forward', 'reload'].includes(input.action)) {
-          const devtools = await inspector(state, signal).catch(() => undefined);
-          try {
-            const before = await devtools?.document().catch(() => undefined);
-            const entry =
-              input.action === 'reload'
-                ? await devtools?.navigation().catch(() => undefined)
-                : undefined;
-            const native =
-              input.action !== 'reload' || (!!entry?.type && entry.type !== 'form_submit');
-            const target = native
-              ? undefined
-              : browserUrl(entry?.url ?? (await currentUrl(state, signal))).href;
-            const failure = await command(
+          if (act.action === 'press') {
+            if (!act.key) throw new Error('Choose a key to press.');
+            await command(state, { action: 'press', key: act.key }, { signal });
+          }
+          if (act.action === 'accept_dialog' || act.action === 'dismiss_dialog') {
+            const text = act.action === 'accept_dialog' ? act.text : undefined;
+            await command(
               state,
-              target ? { action: 'navigate', url: target } : { action: input.action },
+              {
+                action: 'dialog',
+                response: act.action === 'accept_dialog' ? 'accept' : 'dismiss',
+                ...(text ? { promptText: text } : {}),
+              },
               { signal },
-            ).then(
-              () => undefined,
-              (error: unknown) => error,
             );
-            const after = await devtools?.document().catch(() => undefined);
-            const moved = Boolean(before && after && before !== after);
-            if (failure && !(failure instanceof DaemonCommandError && moved)) throw failure;
-            if (moved && (state.saved.scripted || state.sealedDocument)) {
-              delete state.saved.scripted;
-              delete state.sealedDocument;
-              await saveState(state);
-            }
-          } finally {
-            devtools?.close();
           }
-        }
-        if (input.action === 'evaluate') {
-          const script = input.script ?? '';
-          if (!script.trim()) throw new Error('Provide a script.');
-          const url = await currentUrl(state, signal);
-          const devtools = await inspector(state);
-          let read;
-          try {
-            if (state.sealedDocument) {
-              const current = await devtools.document().catch(() => undefined);
-              if (!current || current === state.sealedDocument)
+          if (act.action === 'wait') {
+            if (
+              [act.text, act.url, act.load].filter(Boolean).length !== 1 ||
+              (act.load && !['load', 'domcontentloaded', 'networkidle'].includes(act.load))
+            )
+              throw new Error('Wait for one of text, url or load.');
+            try {
+              await command(
+                state,
+                {
+                  ...(act.text
+                    ? { action: 'wait', text: act.text }
+                    : act.url
+                      ? { action: 'waitforurl', url: act.url }
+                      : { action: 'waitforloadstate', state: act.load }),
+                  ...(act.waitMs === undefined ? {} : { timeout: act.waitMs }),
+                },
+                { signal },
+              );
+            } catch (error) {
+              if (!(error instanceof DaemonCommandError)) throw error;
+              const observation = await observe(state, signal);
+              return {
+                ...observation,
+                text: `The wait condition was not met.\n${observation.text}`,
+              };
+            }
+          }
+          if (act.action === 'select') {
+            const value = act.text ?? '';
+            if (!value) throw new Error('Choose a visible option.');
+            await command(
+              state,
+              { action: 'select', selector: selector(act.selector), value },
+              { signal },
+            );
+          }
+          if (['check', 'uncheck', 'hover'].includes(act.action))
+            await command(
+              state,
+              { action: act.action, selector: selector(act.selector) },
+              { signal },
+            );
+          if (act.action === 'drag') {
+            if (actGesture) await movePointer(state, actGesture, signal);
+            else
+              await command(
+                state,
+                {
+                  action: 'drag',
+                  source: selector(act.selector),
+                  target: selector(act.targetSelector),
+                },
+                { signal },
+              );
+          }
+          if (['back', 'forward', 'reload'].includes(act.action)) {
+            const devtools = await inspector(state, signal).catch(() => undefined);
+            try {
+              const before = await devtools?.document().catch(() => undefined);
+              const entry =
+                act.action === 'reload'
+                  ? await devtools?.navigation().catch(() => undefined)
+                  : undefined;
+              const native =
+                act.action !== 'reload' || (!!entry?.type && entry.type !== 'form_submit');
+              const target = native
+                ? undefined
+                : browserUrl(entry?.url ?? (await currentUrl(state, signal))).href;
+              const failure = await command(
+                state,
+                target ? { action: 'navigate', url: target } : { action: act.action },
+                { signal },
+              ).then(
+                () => undefined,
+                (error: unknown) => error,
+              );
+              const after = await devtools?.document().catch(() => undefined);
+              const moved = Boolean(before && after && before !== after);
+              if (failure && !(failure instanceof DaemonCommandError && moved)) throw failure;
+              if (moved && (state.saved.scripted || state.sealedDocument)) {
+                delete state.saved.scripted;
+                delete state.sealedDocument;
+                await saveState(state);
+              }
+            } finally {
+              devtools?.close();
+            }
+          }
+          if (act.action === 'evaluate') {
+            const script = act.script ?? '';
+            if (!script.trim()) throw new Error('Provide a script.');
+            const url = await currentUrl(state, signal);
+            const devtools = await inspector(state);
+            let read;
+            try {
+              if (state.sealedDocument) {
+                const current = await devtools.document().catch(() => undefined);
+                if (!current || current === state.sealedDocument)
+                  throw new BrowserActionError('browser_script_paused');
+                delete state.sealedDocument;
+              }
+              if (state.secrets.size && (await devtools.holding()))
                 throw new BrowserActionError('browser_script_paused');
-              delete state.sealedDocument;
+              read = await devtools.readOnly(script);
+              if (!read) {
+                if (act.readOnly) throw new BrowserActionError('browser_script_writes');
+                await devtools.scripted(true);
+                await saveState(state);
+              }
+            } finally {
+              devtools.close();
             }
-            if (state.secrets.size && (await devtools.holding()))
-              throw new BrowserActionError('browser_script_paused');
-            read = await devtools.readOnly(script);
+            const value = read ? read.value : await evaluate(state, script, signal);
             if (!read) {
-              if (input.readOnly) throw new BrowserActionError('browser_script_writes');
-              await devtools.scripted(true);
-              await saveState(state);
+              await markScripted(state);
+              await observe(state, signal).catch(() => state.refs.clear());
             }
-          } finally {
-            devtools.close();
+            const result = redactBrowserText(JSON.stringify(value ?? null) ?? 'null', state.secrets);
+            return {
+              text: `Script result (JSON):\n${result}`,
+              url: redactBrowserUrl(url, state.secrets),
+            };
           }
-          const value = read ? read.value : await evaluate(state, script, signal);
-          if (!read) {
-            await markScripted(state);
-            await observe(state, signal).catch(() => state.refs.clear());
+          if (act.waitMs && act.action !== 'wait') await delay(act.waitMs, undefined, { signal });
+          return undefined;
+        };
+        if (input.action === 'batch') {
+          if (!input.actions?.length)
+            throw new Error('Provide at least one action for batch execution.');
+          for (const sub of input.actions) {
+            signal?.throwIfAborted();
+            const early = await executeSingle(sub);
+            if (early) return early;
           }
-          const result = redactBrowserText(JSON.stringify(value ?? null) ?? 'null', state.secrets);
-          return {
-            text: `Script result (JSON):\n${result}`,
-            url: redactBrowserUrl(url, state.secrets),
-          };
+        } else {
+          const early = await executeSingle(input);
+          if (early) return early;
         }
       }
       if (input.waitMs && input.action !== 'wait') await delay(input.waitMs, undefined, { signal });

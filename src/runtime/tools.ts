@@ -703,11 +703,12 @@ export const toolDefinitions = {
     'stealth_browse',
     'Open and interact with websites using stealth browser automation with anti-bot challenge detection and automatic escalation.',
     Type.Object({
-      action: literals(['open', 'snapshot', 'title', 'click', 'type', 'press', 'stop']),
+      action: literals(['open', 'snapshot', 'title', 'click', 'type', 'press', 'stop', 'batch']),
       url: Type.Optional(Type.String()),
       selector: Type.Optional(Type.String()),
       text: Type.Optional(Type.String()),
       key: Type.Optional(Type.String()),
+      actions: Type.Optional(Type.Array(Type.Any())),
       session: Type.Optional(Type.String()),
       mode: Type.Optional(literals(['local', 'remote'])),
     }),
@@ -1332,6 +1333,11 @@ export function nodTools(turn: Turn, skills?: SkillLibrary): NodTool[] {
             } else if (p.action === 'stop') {
               await browser.stop({ session: p.session });
               res = { status: 'stopped' };
+            } else if (p.action === 'batch') {
+              res = await browser.executeAction(
+                { action: 'batch', actions: (p.actions ?? []) as any },
+                { session: p.session, mode: p.mode },
+              );
             } else {
               res = await browser.executeAction(
                 { action: p.action, selector: p.selector, text: p.text, key: p.key },

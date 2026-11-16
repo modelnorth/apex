@@ -390,3 +390,32 @@ test('createBrowserbaseCliProvider surfaces BrowserActionError and handles docto
   assert.equal(doctor.remoteAvailable, false);
   assert.match(doctor.output, /ENOENT/);
 });
+
+test('createBrowserbaseCliProvider executes batch actions sequentially', async () => {
+  const runner = createMockRunner((_file, _args) => {
+    return {
+      stdout: 'URL: https://store.example\nPage: Store Page\nElements:\n@e1 button "Buy"',
+      stderr: '',
+      exitCode: 0,
+    };
+  });
+  const provider = createBrowserbaseCliProvider({ runCommand: runner.runCommand });
+  const result = await provider.executeAction({
+    action: 'batch',
+    actions: [
+      { action: 'fill', selector: '#search', text: 'phone' },
+      { action: 'press', key: 'Enter' },
+      { action: 'click', selector: '@e1' },
+    ],
+  });
+  assert.equal(result.observation.url, 'https://store.example');
+  assert.equal(runner.calls.length, 3);
+  assert.deepEqual(runner.calls[0]?.args.slice(0, 3), ['fill', '#search', 'phone']);
+  assert.deepEqual(runner.calls[1]?.args.slice(0, 2), ['press', 'Enter']);
+  assert.deepEqual(runner.calls[2]?.args.slice(0, 2), ['click', '@e1']);
+
+  await assert.rejects(
+    () => provider.executeAction({ action: 'batch', actions: [] }),
+    (err: unknown) => err instanceof BrowserActionError && err.code === 'browser_action_failed',
+  );
+});

@@ -37,7 +37,8 @@ export interface BrowserAction {
     | 'evaluate'
     | 'wait'
     | 'accept_dialog'
-    | 'dismiss_dialog';
+    | 'dismiss_dialog'
+    | 'batch';
   url?: string;
   script?: string;
   tabId?: string;
@@ -60,6 +61,7 @@ export interface BrowserAction {
   expectUrl?: string;
   expectTarget?: string;
   readOnly?: boolean;
+  actions?: BrowserAction[];
 }
 export interface BrowserControl {
   role: string;
