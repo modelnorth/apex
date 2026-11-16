@@ -33,6 +33,7 @@ export interface CheckoutHandoffCard {
   body: string;
   actionLabel: string;
   actionUrl: string;
+  instruction?: string;
 }
 
 export interface CheckoutHandoffPayload {
@@ -47,6 +48,7 @@ export interface CheckoutHandoffPayload {
   checkoutUrl: string;
   expiresAt: string;
   requiresApproval: boolean;
+  instruction?: string;
   channels: Record<CheckoutHandoffChannel, CheckoutHandoffCard>;
   cardDataIncluded: false;
 }

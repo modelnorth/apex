@@ -327,7 +327,7 @@ test('stripe sandbox refuses livemode unless allowLive: true is explicitly passe
   assert.throws(
     () =>
       createStripeSandboxPaymentProvider({
-        apiKey: 'stripe_mock_key_001',
+        apiKey: 'rk_live_mock_001',
         livemode: false,
         guard,
       }),

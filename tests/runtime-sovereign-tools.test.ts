@@ -231,10 +231,14 @@ test('nodTools exposes and executes sovereign tools when context.sovereign is co
     status: string;
     amountFormatted: string;
     cardTitle: string;
+    checkoutUrl: string;
+    instruction: string;
   };
   assert.equal(payRes.status, 'requires_approval');
   assert.equal(payRes.amountFormatted, '$25.00');
   assert.equal(payRes.cardTitle, 'Checkout approval: example.com');
+  assert.equal(payRes.checkoutUrl, 'https://example.com/pay');
+  assert.match(payRes.instruction, /reply with "done"|reply "done"/);
 
   const a2aTool = toolMap.get('a2a_coordinate')!;
   const a2aRes = (await a2aTool.execute({

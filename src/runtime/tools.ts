@@ -1443,9 +1443,28 @@ export function nodTools(turn: Turn, skills?: SkillLibrary): NodTool[] {
                 cardTitle: card.title,
                 cardBody: card.body,
                 checkoutUrl: card.actionUrl,
+                instruction:
+                  card.instruction ??
+                  'Please open the checkout URL, enter your payment details on the merchant checkout page, and reply with "done" once finished so I can take over and verify your order.',
               };
             }
             const execRes = await provider.execute(intent);
+            if (execRes.status === 'requires_action' && execRes.handoff) {
+              const card = p.channel
+                ? execRes.handoff.channels[p.channel]
+                : execRes.handoff.channels.web;
+              return {
+                status: 'requires_approval',
+                intentId: execRes.intentId,
+                amountFormatted: execRes.handoff.formattedAmount,
+                cardTitle: card.title,
+                cardBody: card.body,
+                checkoutUrl: card.actionUrl,
+                instruction:
+                  card.instruction ??
+                  'Please open the checkout URL, enter your payment details on the merchant checkout page, and reply with "done" once finished so I can take over and verify your order.',
+              };
+            }
             return execRes;
           }),
         ]

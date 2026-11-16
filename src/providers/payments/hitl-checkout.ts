@@ -171,6 +171,8 @@ export function createHitlCheckoutHandoffProvider(
     const description = sanitizeLine(intent.description);
     const formattedAmount = formatMinorAmount(auth.amountMinor, auth.currency);
     const expiresAtIso = normalizeExpiryIso(intent.expiresAt);
+    const defaultInstruction =
+      'Please open the checkout URL, enter your payment details on the merchant checkout page, and reply with "done" once finished so I can take over and verify your order.';
 
     const channels: Record<CheckoutHandoffChannel, CheckoutHandoffCard> = {
       telegram: {
@@ -181,10 +183,11 @@ export function createHitlCheckoutHandoffProvider(
           `Merchant: ${merchant} (${auth.merchantOrigin})`,
           `Item: ${description}`,
           `Expires: ${expiresAtIso}`,
-          'Complete payment directly in your browser. Never share card numbers or CVV in chat.',
+          'Complete payment directly on the merchant checkout page. Once paid, reply "done" so I can take over and verify your order.',
         ].join('\n'),
         actionLabel: 'Open secure checkout',
         actionUrl: checkoutUrl,
+        instruction: defaultInstruction,
       },
       whatsapp: {
         channel: 'whatsapp',
@@ -195,17 +198,19 @@ export function createHitlCheckoutHandoffProvider(
           `*Description:* ${description}`,
           `*Expires:* ${expiresAtIso}`,
           `Checkout link: ${checkoutUrl}`,
-          'Complete payment on the merchant page. Never send card details here.',
+          'Complete payment on the merchant page. Once paid, reply "done" so I can take over and confirm.',
         ].join('\n'),
         actionLabel: 'Complete checkout',
         actionUrl: checkoutUrl,
+        instruction: defaultInstruction,
       },
       web: {
         channel: 'web',
         title: `Complete checkout with ${merchant}`,
-        body: `${formattedAmount} at ${auth.merchantOrigin} — ${description} (expires ${expiresAtIso}). Payment card entry happens only on the merchant checkout page.`,
+        body: `${formattedAmount} at ${auth.merchantOrigin} — ${description} (expires ${expiresAtIso}). Payment card entry happens only on the merchant checkout page. Reply "done" once completed to resume.`,
         actionLabel: 'Continue to checkout',
         actionUrl: checkoutUrl,
+        instruction: defaultInstruction,
       },
     };
 
@@ -221,6 +226,7 @@ export function createHitlCheckoutHandoffProvider(
       checkoutUrl,
       expiresAt: expiresAtIso,
       requiresApproval: auth.requiresHitl,
+      instruction: defaultInstruction,
       channels,
       cardDataIncluded: false,
     };
