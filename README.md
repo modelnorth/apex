@@ -31,6 +31,10 @@
 
 ## ⚡ Live System Demo: How Apex Works
 
+<p align="center">
+  <img src="docs/src/assets/readme/apex-demo.gif" alt="Apex Autonomous Errand Execution Demo" width="100%" />
+</p>
+
 Here is an end-to-end trace of how Apex autonomously executes a real-world multi-step errand without user intervention, while keeping secrets hidden and rejecting prompt injections:
 
 ```

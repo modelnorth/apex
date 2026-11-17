@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Apex Sovereign Engine Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    body {
+      background-color: #07090E;
+      color: #E2E8F0;
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Top Bar */
+    .top-bar {
+      height: 56px;
+      background: #0D111A;
+      border-bottom: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #6366F1, #8B5CF6);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #FFFFFF;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #F8FAFC;
+    }
+    .brand-sub {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6366F1;
+      font-weight: 600;
+      margin-left: 6px;
+      padding: 2px 6px;
+      background: rgba(99, 102, 241, 0.12);
+      border-radius: 4px;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .badges {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .badge-active {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-active .badge-dot {
+      background: #10B981;
+      box-shadow: 0 0 6px #10B981;
+    }
+    .badge-secure {
+      background: rgba(99, 102, 241, 0.12);
+      color: #A5B4FC;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .badge-stealth {
+      background: rgba(245, 158, 11, 0.12);
+      color: #FBBF24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Main Container */
+    .container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 560px 1fr;
+      gap: 16px;
+      padding: 16px 20px;
+      background: #07090E;
+    }
+
+    /* Left Panel: Conversation & Action */
+    .chat-panel {
+      background: #0E131F;
+      border: 1px solid #1E293B;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .panel-header {
+      padding: 12px 18px;
+      background: #131929;
+      border-bottom: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94A3B8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-messages {
+      flex: 1;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: hidden;
+    }
+
+    .msg {
+      max-width: 90%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .msg.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .msg-user {
+      align-self: flex-end;
+      background: #312E81;
+      color: #EEF2FF;
+      border: 1px solid #4338CA;
+      border-bottom-right-radius: 2px;
+    }
+    .msg-user-channel {
+      font-size: 10px;
+      font-weight: 600;
+      color: #A5B4FC;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+    .msg-agent {
+      align-self: flex-start;
+      background: #1E293B;
+      color: #F1F5F9;
+      border: 1px solid #334155;
+      border-bottom-left-radius: 2px;
+    }
+
+    /* Sovereign Action Card */
+    .action-card {
+      background: #131A2B;
+      border: 1px solid #29354F;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+    }
+    .card-label {
+      color: #94A3B8;
+    }
+    .card-val {
+      font-weight: 600;
+      color: #F8FAFC;
+    }
+    .card-val.green {
+      color: #34D399;
+    }
+    .card-val.purple {
+      color: #A5B4FC;
+    }
+    .handoff-banner {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px dashed #6366F1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+      color: #C7D2FE;
+      line-height: 1.4;
+      margin-top: 4px;
+    }
+    .handoff-url {
+      color: #818CF8;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    /* Right Panel: Telemetry & Live Trace */
+    .telemetry-panel {
+      background: #0A0D16;
+      border: 1px solid #1E293B;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .telemetry-header {
+      padding: 12px 18px;
+      background: #0E131F;
+      border-bottom: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .telemetry-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6366F1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .telemetry-stats {
+      font-size: 11px;
+      color: #64748B;
+      font-family: ui-monospace, monospace;
+    }
+
+    .telemetry-body {
+      flex: 1;
+      padding: 14px 18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.8px;
+      line-height: 1.6;
+      overflow-y: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      color: #94A3B8;
+    }
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .log-item.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .log-ts {
+      color: #475569;
+      min-width: 65px;
+    }
+    .log-tag {
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 10.5px;
+    }
+    .tag-policy { background: rgba(52, 211, 153, 0.15); color: #34D399; }
+    .tag-vault { background: rgba(165, 180, 252, 0.15); color: #A5B4FC; }
+    .tag-browser { background: rgba(251, 191, 36, 0.15); color: #FBBF24; }
+    .tag-batch { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+    .tag-shield { background: rgba(244, 63, 94, 0.15); color: #FB7185; }
+    .tag-sms { background: rgba(192, 132, 252, 0.15); color: #C084FC; }
+    .tag-done { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+
+    .log-text {
+      color: #CBD5E1;
+      flex: 1;
+    }
+    .log-text .highlight {
+      color: #F8FAFC;
+      font-weight: 600;
+    }
+    .log-text .code {
+      color: #38BDF8;
+    }
+
+    /* Bottom status */
+    .footer-bar {
+      height: 38px;
+      background: #090C14;
+      border-top: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      font-size: 11px;
+      color: #475569;
+      font-family: ui-monospace, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-logo">▲</div>
+      <div class="brand-title">APEX</div>
+      <div class="brand-sub">ModelNorth Sovereign OS</div>
+    </div>
+    <div class="badges">
+      <div class="badge badge-active">
+        <div class="badge-dot"></div>
+        Runtime Active
+      </div>
+      <div class="badge badge-secure">
+        Vault: AES-256-GCM
+      </div>
+      <div class="badge badge-stealth">
+        CDP Action Batching
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Left Chat Interface -->
+    <div class="chat-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>● Telegram Inbound Channel</span>
+        </div>
+        <span style="font-size: 11px; color: #64748B;">Sovereign Gateway v2.4</span>
+      </div>
+      <div class="chat-messages">
+        <div class="msg msg-user" id="msg-user-1">
+          <div class="msg-user-channel">User via Telegram</div>
+          Buy me the early-bird ticket for TechSummit on techsummit.io. Max budget $80.
+        </div>
+
+        <div class="msg msg-agent" id="msg-agent-1">
+          Evaluating spending policy and minting single-use burner card...
+          <div class="action-card" id="card-payment">
+            <div class="card-row">
+              <span class="card-label">Merchant:</span>
+              <span class="card-val">techsummit.io</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Amount:</span>
+              <span class="card-val green">$75.00 (Allowed &le; $80 ceiling)</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Burner Card:</span>
+              <span class="card-val purple">•••• •••• •••• 9482 (Stripe Issuing)</span>
+            </div>
+            <div class="handoff-banner" id="card-handoff">
+              🔒 <strong>Checkout Handoff:</strong> Complete payment at <span class="handoff-url">https://checkout.stripe.com/pay/cs_live_...</span> and reply <strong>"done"</strong> to resume.
+            </div>
+          </div>
+        </div>
+
+        <div class="msg msg-user" id="msg-user-2" style="align-self: flex-end;">
+          <div class="msg-user-channel">User</div>
+          done
+        </div>
+
+        <div class="msg msg-agent" id="msg-agent-2">
+          Payment confirmed. Intercepted 3DS SMS 2FA code <strong>492018</strong>. Order <strong>#TS-9482</strong> completed. Receipt encrypted and saved to local vault.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Telemetry Interface -->
+    <div class="telemetry-panel">
+      <div class="telemetry-header">
+        <div class="telemetry-title">&gt;_ SOVEREIGN_TELEMETRY_ENGINE</div>
+        <div class="telemetry-stats">OTel GenAI v1.28.0 | Zero Data Exfiltration</div>
+      </div>
+      <div class="telemetry-body" id="telemetry-body">
+        <div class="log-item" id="log-1">
+          <span class="log-ts">00:01.05</span>
+          <span class="log-tag tag-policy">POLICY</span>
+          <span class="log-text">Intent evaluated: <span class="highlight">$75.00</span> &le; threshold <span class="highlight">$80.00</span> &rarr; <span class="highlight green">ALLOWED</span></span>
+        </div>
+        <div class="log-item" id="log-2">
+          <span class="log-ts">00:02.18</span>
+          <span class="log-tag tag-vault">VAULT</span>
+          <span class="log-text">Stripe Issuing minted single-use burner card <span class="code">4000...9482</span></span>
+        </div>
+        <div class="log-item" id="log-3">
+          <span class="log-ts">00:03.42</span>
+          <span class="log-tag tag-browser">STEALTH</span>
+          <span class="log-text">Navigated to <span class="code">https://techsummit.io</span> (Turnstile bypass active)</span>
+        </div>
+        <div class="log-item" id="log-4">
+          <span class="log-ts">00:04.75</span>
+          <span class="log-tag tag-batch">BATCH_CDP</span>
+          <span class="log-text">Batched 6 DOM mutations into single frame [fill_form, autofill_card]</span>
+        </div>
+        <div class="log-item" id="log-5">
+          <span class="log-ts">00:05.90</span>
+          <span class="log-tag tag-shield">FIREWALL</span>
+          <span class="log-text">Neutralized hidden injection payload inside <span class="code">&lt;untrusted_tool_result&gt;</span></span>
+        </div>
+        <div class="log-item" id="log-6">
+          <span class="log-ts">00:07.12</span>
+          <span class="log-tag tag-sms">TWILIO_SMS</span>
+          <span class="log-text">Inbound HMAC-SHA1 webhook verified &rarr; Intercepted OTP: <span class="highlight">492018</span></span>
+        </div>
+        <div class="log-item" id="log-7">
+          <span class="log-ts">00:08.35</span>
+          <span class="log-tag tag-vault">GHOSTDESK</span>
+          <span class="log-text">UIA accessibility tree verified &rarr; Receipt vaulted to <span class="code">C:\vault\techsummit.pdf</span></span>
+        </div>
+        <div class="log-item" id="log-8">
+          <span class="log-ts">00:09.10</span>
+          <span class="log-tag tag-done">COMPLETED</span>
+          <span class="log-text">Errand finalized in 9.1s. 0 external credentials leaked. Status: <span class="highlight">SUCCESS</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <div>Apex Sovereign OS &bull; Built by ModelNorth &bull; Ed25519 Signed Canonical A2A Protocol</div>
+    <div>Local SQLite + AES-256 Vault &bull; 100% Self-Hosted</div>
+  </div>
+
+  <script>
+    const timeline = [
+      { t: 0.5, id: 'msg-user-1' },
+      { t: 1.0, id: 'log-1' },
+      { t: 2.0, id: 'log-2' },
+      { t: 2.5, id: 'msg-agent-1' },
+      { t: 3.4, id: 'log-3' },
+      { t: 4.6, id: 'log-4' },
+      { t: 5.8, id: 'log-5' },
+      { t: 6.8, id: 'msg-user-2' },
+      { t: 7.1, id: 'log-6' },
+      { t: 8.2, id: 'log-7' },
+      { t: 8.8, id: 'msg-agent-2' },
+      { t: 9.1, id: 'log-8' },
+    ];
+
+    window.renderAt = function(seconds) {
+      for (const item of timeline) {
+        const el = document.getElementById(item.id);
+        if (el) {
+          if (seconds >= item.t) {
+            el.classList.add('visible');
+          } else {
+            el.classList.remove('visible');
+          }
+        }
+      }
+    };
+
+    window.mediaReady = true;
+  </script>
+</body>
+</html>
