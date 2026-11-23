@@ -36,8 +36,8 @@ importers:
         specifier: 1.3.4
         version: 1.3.4
       '@audio/decode-wav':
-        specifier: 2.0.0
-        version: 2.0.0
+        specifier: 2.0.1
+        version: 2.0.1
       '@audio/decode-webm':
         specifier: 1.6.1
         version: 1.6.1
@@ -404,8 +404,8 @@ packages:
     resolution: {integrity: sha512-0bgH1zgLlpgjdHj9NWdiYkMeLyCz5w1UEuvg2qiwJFXbwYSvRhOcmeT82CQUlb8RZSblS3AWpDJzLnAmQJ2cgg==}
     engines: {node: '>=18'}
 
-  '@audio/decode-wav@2.0.0':
-    resolution: {integrity: sha512-fs5MxpGxGwhftXGmIgKT1zzEshQ0vlNkNN/HdHXTZevPenHOxEDblVHKZbhC0ip7jlIi4aV4If6aC+VKrWb6Hw==}
+  '@audio/decode-wav@2.0.1':
+    resolution: {integrity: sha512-RDtmBM9zy6i0Haxq6yXUnMKQ3j9mmN8k0mYuunXunO3FZZi/HvHGQkio7xXENrqMHosiPXbQyCtE6LIhaB6Kbg==}
     engines: {node: '>=18'}
 
   '@audio/decode-webm@1.6.1':
@@ -4659,7 +4659,7 @@ snapshots:
       '@wasm-audio-decoders/ogg-vorbis': 0.1.20
       codec-parser: 2.5.0
 
-  '@audio/decode-wav@2.0.0': {}
+  '@audio/decode-wav@2.0.1': {}
 
   '@audio/decode-webm@1.6.1':
     dependencies:
